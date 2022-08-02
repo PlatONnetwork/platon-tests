@@ -47,6 +47,12 @@ def check_block(aides: List[Aide], need_number=10, multiple=3):
     raise Exception("The environment is not working properly")
 
 
+def check_stop_check(aides: List[Aide]):
+    start = max(get_block_number(aides))
+    time.sleep(3)
+    return True if start == max(get_block_number(aides)) else False
+
+
 def get_block_number(aides, detail=False):
     if detail:
         return [{aide.uri.replace("http://", ""): aide.get_block_number} for aide in aides]
