@@ -18,11 +18,11 @@ def test_DI_001_009(normal_aide):
     009：The money entrusted is equal to the low threshold entrusted
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 2)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    assert delegate_result['status'] == 1
+    assert delegate_result['code'] == 0
 
     delegate_info = normal_aide.delegate.get_delegate_info(delegate_address)
     logger.info(delegate_info)
@@ -59,13 +59,13 @@ def test_DI_002_003_004(normal_aides):
     logger.info("The candidate delegate")
     delegate_result = aide1.delegate.delegate(private_key=delegate_prikey)
     print(f'delegate_result={delegate_result}')
-    assert delegate_result['status'] == 1
+    assert delegate_result['code'] == 0
 
     delegate_address2, delegate_prikey2 = generate_account(aide2, aide2.delegate._economic.delegate_limit * 2)
     logger.info("The verifier delegates")
     delegate_result2 = aide2.delegate.delegate(private_key=delegate_prikey2)
     print(f'delegate_result2={delegate_result2}')
-    assert delegate_result2['status'] == 1
+    assert delegate_result2['code'] == 0
 
     print(aide2.platon.block_number)
     wait_consensus(aide1)
@@ -77,7 +77,7 @@ def test_DI_002_003_004(normal_aides):
     logger.info("Consensus verifier delegates")
     delegate_result3 = aide2.delegate.delegate(private_key=delegate_prikey3)
     print(f'delegate_result3={delegate_result3}')
-    assert delegate_result3['status'] == 1
+    assert delegate_result3['code'] == 0
 
 
 @allure.title("The amount entrusted by the client is less than the threshold")

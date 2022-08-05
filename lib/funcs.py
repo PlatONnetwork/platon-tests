@@ -1,7 +1,7 @@
 import math
 from typing import Literal
 
-from platon_account import Account
+from lib.account import MAIN_ACCOUNT
 from platon_env.chain import Chain
 
 from lib.aide import Aide
@@ -37,11 +37,10 @@ def get_aides(chain: Chain, _type: Literal['all', 'init', 'normal'] = 'all'):
     elif _type == 'normal':
         nodes = chain.normal_nodes
 
-    account = Account.from_key('f90fd6808860fe869631d978b0582bb59db6189f7908b578a886d582cb6fccfa')
     aides = []
     for node in nodes:
         aide = Aide(node)
-        aide.set_default_account(account)
+        aide.set_default_account(MAIN_ACCOUNT)
         aides.append(aide)
 
     return aides
