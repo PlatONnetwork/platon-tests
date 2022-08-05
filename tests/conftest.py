@@ -22,10 +22,7 @@ def chain(request):
     """
     chain_file = request.config.getoption("--chainFile")
     chain = Chain.from_file(join(BASE_DIR, chain_file))
-    chain.install(setting.PLATON,
-                  setting.NETWORK,
-                  setting.GENESIS_FILE,
-                  )
+    chain.install()
     # todo：优化等待链出块的方式
     time.sleep(3)
 
@@ -98,9 +95,6 @@ def normal_aides(chain: Chain):
     """ 返回链上普通节点的aide对象列表
     """
     normal_aides = get_aides(chain, 'normal')
-    for aide in normal_aides:
-        address, private_key = aide.create_account()
-        aide.set_default_account(address)
     return normal_aides
 
 
