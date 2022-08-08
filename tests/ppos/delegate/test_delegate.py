@@ -14,8 +14,10 @@ from tests.conftest import generate_account
 @pytest.mark.compatibility
 def test_DI_001_009(normal_aide):
     """
-    001:Query delegate parameter validation
-    009：The money entrusted is equal to the low threshold entrusted
+    001: 委托 至 备选节点候选人
+        - 质押成为备选节点候选人
+    009：委托的资金等于低门槛的委托
+        - 委托金额(_economic.delegate_limit) 至 备选节点候选人
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
@@ -35,73 +37,70 @@ def test_DI_001_009(normal_aide):
 @pytest.mark.P1
 def test_DI_002_003_004(normal_aides):
     """
-    002:Delegate to candidate
-    003:Delegate to verifier
-    004:Delegate to consensus verifier
+    002:委托 至 备选节点候选人
+    003:委托 至 备选节点
+    004:委托 至 验证节点 (验证节点轮流成为提议人进行出块)
     """
-    aide1 = normal_aides[0]
-    aide2 = normal_aides[1]
+    aide1, aide2 = normal_aides[0], normal_aides[1]
 
     address, prikey = generate_account(aide1, aide1.delegate._economic.staking_limit * 3)
-    aide1.staking.create_staking(benifit_address=address, private_key=prikey)
+    aide1.staking.create_staking(benefit_address=address, private_key=prikey,
+                                 amount=aide2.delegate._economic.staking_limit)
 
     address, prikey = generate_account(aide2, aide2.delegate._economic.staking_limit * 3)
-    aide2.staking.create_staking(amount=aide2.delegate._economic.staking_limit * 2, benifit_address=address,
-                                 private_key=prikey)
+    aide2.staking.create_staking(benefit_address=address, private_key=prikey,
+                                 amount=aide2.delegate._economic.staking_limit * 2)
 
     wait_settlement(aide1)
-    nodeid_list = get_pledge_list(aide2.staking.get_verifier_list)
-    logger.info("The billing cycle validates the list of people{}".format(nodeid_list))
-    assert aide1.node.node_id not in nodeid_list
-    assert aide2.node.node_id in nodeid_list
+    node_id_list = get_pledge_list(aide2.staking.get_verifier_list)
+    logger.info("The billing cycle validates the list of people{}".format(node_id_list))
+    assert aide1.node.node_id not in node_id_list
+    assert aide2.node.node_id in node_id_list
 
     delegate_address, delegate_prikey = generate_account(aide1, aide1.delegate._economic.delegate_limit * 2)
     logger.info("The candidate delegate")
     delegate_result = aide1.delegate.delegate(private_key=delegate_prikey)
-    print(f'delegate_result={delegate_result}')
+    logger.info(f'delegate_result={delegate_result}')
     assert delegate_result['code'] == 0
 
     delegate_address2, delegate_prikey2 = generate_account(aide2, aide2.delegate._economic.delegate_limit * 2)
     logger.info("The verifier delegates")
     delegate_result2 = aide2.delegate.delegate(private_key=delegate_prikey2)
-    print(f'delegate_result2={delegate_result2}')
+    logger.info(f'delegate_result2={delegate_result2}')
     assert delegate_result2['code'] == 0
 
-    print(aide2.platon.block_number)
     wait_consensus(aide1)
-    print(aide2.platon.block_number)
-    nodeid_list = get_pledge_list(aide2.staking.get_validator_list)
-    logger.info("Consensus validator list:{}".format(nodeid_list))
-    assert aide2.node.node_id in nodeid_list
+    node_id_list = get_pledge_list(aide2.staking.get_validator_list)
+    logger.info("Consensus validator list:{}".format(node_id_list))
+    assert aide2.node.node_id in node_id_list
     delegate_address3, delegate_prikey3 = generate_account(aide2, aide2.delegate._economic.delegate_limit * 2)
     logger.info("Consensus verifier delegates")
     delegate_result3 = aide2.delegate.delegate(private_key=delegate_prikey3)
-    print(f'delegate_result3={delegate_result3}')
+    logger.info(f'delegate_result3={delegate_result3}')
     assert delegate_result3['code'] == 0
 
 
-@allure.title("The amount entrusted by the client is less than the threshold")
+@allure.title("init_aide can't be delegated")
 @pytest.mark.P3
 def test_DI_005(init_aide):
     """
-    :param init_aide_obj:
-    :return:
+    005: init_aide 不能被委托
+    # TODO 这里直接抛出错误了,和期望不符合,预估gas
     """
     address, prikey = generate_account(init_aide, init_aide.delegate._economic.delegate_limit * 2)
-    result = init_aide.delegate.delegate(private_key=prikey)
+    result = init_aide.delegate.delegate(private_key=prikey, txn={'gas': 4000000, 'gasPrice': 10000000000})
     logger.info(result)
-    # assert_code(result, 301107)
+    assert result['code'] == 301107
 
 
 @allure.title("The amount entrusted by the client is less than the threshold")
 @pytest.mark.P1
 def test_DI_006(normal_aide):
     """
-    :param normal_aide_obj:
-    :return:
+    006:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 2)
     delegate_result = normal_aide.delegate.delegate(amount=normal_aide.delegate._economic.delegate_limit - 1,
@@ -118,7 +117,7 @@ def test_DI_007(normal_aide):
     :return:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 2)
 
@@ -139,7 +138,7 @@ def test_DI_008(normal_aide):
     :return:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, 10)
     status = 0
@@ -181,7 +180,7 @@ def test_DI_011_012_013_014(normal_aide, status):
     :return:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 5)
     if status == 0:
@@ -200,19 +199,19 @@ def test_DI_011_012_013_014(normal_aide, status):
         # A candidate whose mandate is voluntarily withdrawn but who is still in the freeze period
         wait_settlement(normal_aide)
         withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
-        print(f'withdrew_staking_result={withdrew_staking_result}')
+        logger(f'withdrew_staking_result={withdrew_staking_result}')
         delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-        print(f'delegate_result={delegate_result}')
+        logger(f'delegate_result={delegate_result}')
         # assert_code(result, 301103)
 
     if status == 3:
         # A candidate whose mandate has been voluntarily withdrawn and whose freeze period has expired
         wait_settlement(normal_aide)
         withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
-        print(f'withdrew_staking_result={withdrew_staking_result}')
+        logger(f'withdrew_staking_result={withdrew_staking_result}')
         wait_settlement(normal_aide, 2)
         delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-        print(f'delegate_result={delegate_result}')
+        logger(f'delegate_result={delegate_result}')
         logger.info(delegate_result)
         # assert_code(result, 301102)
 
@@ -225,13 +224,13 @@ def test_DI_015_016(normal_aide, init_aide):
     :param init_aide_obj:
     :return:
     """
-    print(normal_aide.uri)
+    logger(normal_aide.uri)
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 2)
     delegate_address, delegate_prikey = generate_account(normal_aide,
                                                          normal_aide.delegate._economic.delegate_limit * 10)
-    result = normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
-    print(f'result={result}')
+    result = normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
+    logger(f'result={result}')
     # assert_code(result, 0)
     wait_settlement(normal_aide)
     # validator_list = get_pledge_list(other_node.ppos.getValidatorList)
@@ -258,7 +257,7 @@ def test_DI_015_016(normal_aide, init_aide):
     logger.info("Next settlement period")
     wait_settlement(normal_aide, 2)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    print(f'delegate_result={delegate_result}')
+    logger(f'delegate_result={delegate_result}')
     # assert_code(result, 301102)
 
 
@@ -271,10 +270,10 @@ def test_DI_017(normal_aide):
     :return:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    result = normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    result = normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
     # assert_code(result, 0)
     delegate_result = normal_aide.delegate.delegate(private_key=prikey)
-    print(f'delegate_result={delegate_result}')
+    logger(f'delegate_result={delegate_result}')
     logger.info(result)
     # assert_code(result, 301106)
 
@@ -288,7 +287,7 @@ def test_DI_019(normal_aide):
     :return:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -297,19 +296,19 @@ def test_DI_019(normal_aide):
     # Exit the pledge
     result = normal_aide.staking.withdrew_staking(private_key=prikey)
     # assert_code(result, 0)
-    print(result)
+    logger(result)
     # Repeat pledge
-    result = normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    result = normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
     # assert_code(result, 0)
-    print(f'result={result}')
+    logger(f'result={result}')
     result = normal_aide.delegate.delegate(private_key=delegate_prikey)
     logger.info(result)
     # Recheck wallet associations
     msg = normal_aide.delegate.get_delegate_list(address=delegate_address)
     logger.info(msg)
-    # print(len(msg["Ret"]))
+    # logger(len(msg["Ret"]))
     # assert len(msg["Ret"]) == 2
-    print(len(msg))
+    logger(len(msg))
     assert len(msg) == 2
     # for i in msg["Ret"]:
     #     assert client_new_node.node.web3.toChecksumAddress(i["Addr"]) == address1
@@ -329,7 +328,7 @@ def test_DI_021(normal_aide, init_aide):
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -366,7 +365,7 @@ def test_DI_022_023_024(normal_aide, defer_reset_chain, status):
     # todo: 价格deploy_all的方法,或者等等看ws重连问题解决后可不可以
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -417,7 +416,6 @@ def test_DI_025(normal_aide):
     # assert_code(result, 301203)
 
 
-
 @allure.title("The entrusted candidate is valid")
 @pytest.mark.P2
 def test_DI_026(normal_aide):
@@ -426,7 +424,7 @@ def test_DI_026(normal_aide):
     :return:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -469,7 +467,7 @@ def test_DI_028(normal_aide):
     The entrusted candidate is invalid
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -487,7 +485,6 @@ def test_DI_028(normal_aide):
     assert delegate_list.NodeID == normal_aide.node.node_id
 
 
-
 @allure.title("Delegate information in the hesitation period, lock period")
 @pytest.mark.P2
 def test_DI_029_030(normal_aide):
@@ -496,7 +493,7 @@ def test_DI_029_030(normal_aide):
     030:Lock periodic query information
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -517,7 +514,6 @@ def test_DI_029_030(normal_aide):
     assert delegate_list.NodeID == normal_aide.node.node_id
 
 
-
 @allure.title("The delegate message no longer exists")
 @pytest.mark.P2
 def test_DI_031(normal_aide):
@@ -526,7 +522,7 @@ def test_DI_031(normal_aide):
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -544,7 +540,6 @@ def test_DI_031(normal_aide):
     # assert_code(result, 301205)
 
 
-
 @allure.title("The commission information is still in the hesitation period & The delegate information is still locked")
 @pytest.mark.P2
 def test_DI_032_033(normal_aide):
@@ -554,7 +549,7 @@ def test_DI_032_033(normal_aide):
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -589,7 +584,7 @@ def test_DI_034(normal_aide):
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -612,7 +607,7 @@ def test_DI_034(normal_aide):
 
 @allure.title("Entrusted candidate (penalized in lockup period, penalized out completely)")
 @pytest.mark.P2
-def test_DI_035_036(normal_aide, init_aide ):
+def test_DI_035_036(normal_aide, init_aide):
     """
     The entrusted candidate is still penalized in the lockup period
     The entrusted candidate was penalized to withdraw completely
@@ -620,7 +615,7 @@ def test_DI_035_036(normal_aide, init_aide ):
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -675,7 +670,7 @@ def test_DI_038(normal_aide):
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
@@ -690,7 +685,7 @@ def test_DI_038(normal_aide):
 
     # Exit the pledge
     withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
-    print(f'withdrew_staking_result={withdrew_staking_result}')
+    logger(f'withdrew_staking_result={withdrew_staking_result}')
 
     result = normal_aide.delegate.get_delegate_info(address=delegate_address, staking_block_identifier=staking_blocknum)
     logger.info(result)

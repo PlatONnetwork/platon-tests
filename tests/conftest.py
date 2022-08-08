@@ -84,9 +84,6 @@ def init_aide(init_aides):
     """ 返回一个创世节点的aide对象
     """
     init_aides = choice(init_aides)
-    # account = Account().privateKeyToAccount(setting.Master_prikey)
-    address, private_key = init_aides.create_account()
-    init_aides.set_default_account(address)
     return init_aides
 
 

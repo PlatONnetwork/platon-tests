@@ -7,7 +7,7 @@ from platon_env.chain import Chain
 from lib.aide import Aide
 
 NO_PROPOSAL = 'no proposal'
-CONDITIONS = set(NO_PROPOSAL)       # 方便用例fixture使用
+CONDITIONS = set(NO_PROPOSAL)  # 方便用例fixture使用
 
 
 def assert_chain(chain, condition):
@@ -55,9 +55,9 @@ def get_switchpoint_by_settlement(aide, number=0):
     """
     block_number = aide.economic.epoch_blocks * number
     tmp_current_block = aide.platon.block_number
-    current_end_block = math.ceil(tmp_current_block / aide.economic.epoch_blocks) * aide.economic.epoch_blocks + block_number
+    current_end_block = math.ceil(
+        tmp_current_block / aide.economic.epoch_blocks) * aide.economic.epoch_blocks + block_number
     return current_end_block
-
 
 
 def wait_settlement(aide, settlement=0):
@@ -80,7 +80,8 @@ def get_switchpoint_by_consensus(aide, consensus=0):
     """
     block_number = aide.economic.consensus_blocks * consensus
     tmp_current_block = aide.platon.block_number
-    current_end_block = math.ceil(tmp_current_block / aide.economic.consensus_blocks) * aide.economic.consensus_blocks + block_number
+    current_end_block = math.ceil(
+        tmp_current_block / aide.economic.consensus_blocks) * aide.economic.consensus_blocks + block_number
     return current_end_block
 
 
