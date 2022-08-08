@@ -19,3 +19,6 @@ HISTORY_VERSION = '1.1.0'
 
 # 治理测试版本
 PIP_BIN_DIR = os.path.join(BASE_DIR, 'env-files/pip-bin')
+
+# keystore
+KEYSTORE = os.path.join(BASE_DIR, 'env-files/keystore')
