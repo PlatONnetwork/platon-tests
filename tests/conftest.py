@@ -51,10 +51,7 @@ def defer_reset_chain(chain: Chain):
     """ 返回chain对象，并且在用例运行完成后恢复环境
     """
     yield chain
-    chain.install(setting.PLATON,
-                  setting.NETWORK,
-                  setting.GENESIS_FILE,
-                  )
+    chain.install()
     time.sleep(5)       # 等待链出块
 
 
