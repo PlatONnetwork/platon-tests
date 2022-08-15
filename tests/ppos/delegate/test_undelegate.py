@@ -100,8 +100,10 @@ def test_ROE_005_018(normal_aide):
     # 赎回委托信息 需要传入当时质押的StakingBlockNum, *委托金额会进入锁定期
     result = normal_aide.delegate.withdrew_delegate(private_key=delegate_pk, staking_block_identifier=StakingBlockNum)
     logger.info(result)
-    res = normal_aide.delegate.get_delegate_lock_info(address=delegate_address)
 
+    wait_settlement(normal_aide)
+    res = normal_aide.delegate.redeem_delegate(private_key=delegate_pk)
+    logger.info(f"Receive the amount entrusted by the lockup period: {res}")
     amount_after = normal_aide.platon.get_balance(delegate_address)
     logger.info("The wallet balance:{}".format(amount_after))
     delegate_limit = normal_aide.delegate._economic.delegate_limit
@@ -133,18 +135,17 @@ def test_ROE_006_008(normal_aide):
 @pytest.mark.P1
 def test_ROE_010(normal_aide):
     """
-    :param normal_aide_obj:
-    :return:
+
     """
     # client_new_node.economic.env.deploy_all()
     delegate_address, delegate_pk = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit)
     lockup_amount = normal_aide.web3.toVon(1000, 'lat')
     plan = [{'Epoch': 1, 'Amount': lockup_amount}]
     # Create a lock plan
-    result = normal_aide.web3.restricting.create_restricting(release_address=delegate_address, plans=plan)
+    result = normal_aide.transfer.restricting(release_address=delegate_address, plans=plan)
     logger.info(result)
-    # assert_code(result, 0)
-    msg = normal_aide.web3.restricting.get_restricting_info(delegate_address)
+
+    msg = normal_aide.transfer.get_restricting_info(delegate_address)
     logger.info(msg)
     # create staking
     staking_address, staking_pk = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
@@ -153,8 +154,9 @@ def test_ROE_010(normal_aide):
     delegate_amount = normal_aide.web3.toVon(500, 'lat')
     # Lock account authorization
     delegate_result = normal_aide.delegate.delegate(amount=delegate_amount, balance_type=1, private_key=delegate_pk)
-    assert delegate_result['status'] == 1
     logger.info(delegate_result)
+    assert delegate_result['code'] == 0
+
     # Own capital account entrustment
     result = normal_aide.delegate.delegate(amount=delegate_amount, balance_type=0, private_key=delegate_pk)
     logger.info(result)
