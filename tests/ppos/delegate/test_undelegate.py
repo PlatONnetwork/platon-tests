@@ -1,4 +1,5 @@
 import pytest
+from platon._utils.error_code import ERROR_CODE
 
 from lib.funcs import wait_settlement
 from tests.conftest import generate_account
@@ -10,120 +11,94 @@ from loguru import logger
 def test_ROE_001_007_015(normal_aide):
     """
     和用例test_DI_031一致，需要合并吗？
-    :param normal_aide_obj:
-    :return:
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    assert delegate_result['status'] == 1
-    logger.info(delegate_result)
+    assert normal_aide.delegate.delegate(private_key=delegate_prikey)['code'] == 0
 
-    msg = normal_aide.staking.staking_info
-    staking_blocknum = msg.StakingBlockNum
-
-    result = normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey)
-    # assert_code(result, 0)
-    print(result)
+    assert normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey)['code'] == 0
 
 
 @pytest.mark.P1
 def test_ROE_002(normal_aide):
     """
-    :param normal_aide_obj:
-    :return:
+
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    assert delegate_result['status'] == 1
-    logger.info(delegate_result)
+    assert normal_aide.delegate.delegate(private_key=delegate_prikey)['code'] == 0
 
-    msg = normal_aide.staking.staking_info
-    staking_blocknum = msg.StakingBlockNum
-    txn = {"gas": 1}
-    status = 0
-    try:
-        result = normal_aide.delegate.withdrew_delegate(txn=txn, private_key=delegate_prikey)
-    except BaseException:
-        status = 1
-    assert status == 1
+    with pytest.raises(ValueError) as exception_info:
+        normal_aide.delegate.withdrew_delegate(txn={"gas": 1}, private_key=delegate_prikey)
+
+    assert str(exception_info.value) == "{'code': -32000, 'message': 'intrinsic gas too low'}"
 
 
 @pytest.mark.P3
 def test_ROE_003(normal_aide):
     """
-    :param normal_aide_obj:
-    :return:
+
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    assert delegate_result['status'] == 1
-    logger.info(delegate_result)
+    assert normal_aide.delegate.delegate(private_key=delegate_prikey)['code'] == 0
 
-    # msg = normal_aide.staking.staking_info
-    # staking_blocknum = msg.StakingBlockNum
     illegal_nodeID = "7ee3276fd6b9c7864eb896310b5393324b6db785a2528c00cc28ca8c" \
                      "3f86fc229a86f138b1f1c8e3a942204c03faeb40e3b22ab11b8983c35dc025de42865990"
     result = normal_aide.delegate.withdrew_delegate(node_id=illegal_nodeID, private_key=delegate_prikey)
     logger.info(result)
-    # assert_code(result, 301109)
+    assert ERROR_CODE[301109] == result['message']
 
 
 @pytest.mark.P1
 def test_ROE_004(normal_aide):
     """
-    :param normal_aide_obj:
-    :return:
+
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(amount=value, benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    assert delegate_result['status'] == 1
-    logger.info(delegate_result)
+    assert normal_aide.delegate.delegate(private_key=delegate_prikey)['code'] == 0
 
     result = normal_aide.delegate.withdrew_delegate(amount=normal_aide.delegate._economic.delegate_limit + 1,
                                                     private_key=delegate_prikey)
     logger.info(result)
+    assert ERROR_CODE[301113] == result['message']
 
 
 @pytest.mark.P1
 def test_ROE_005_018(normal_aide):
     """
-    :param normal_aide_obj:
-    :return:
+
     """
     value = normal_aide.delegate._economic.staking_limit
     address, prikey = generate_account(normal_aide, value * 3)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    assert delegate_result['status'] == 1
-    logger.info(delegate_result)
+    assert normal_aide.delegate.delegate(private_key=delegate_prikey)['code'] == 0
+
     # Return a pledge
-    withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
-    print(f'withdrew_staking_result={withdrew_staking_result}')
+    assert normal_aide.staking.withdrew_staking(private_key=prikey)['code'] == 0
 
     # The next two cycle
-    wait_settlement(normal_aide, 2)
+    # wait_settlement(normal_aide, 2)
     amount = normal_aide.platon.get_balance(delegate_address)
     logger.info("The wallet balance:{}".format(amount))
 
-    result = normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey)
+    result = normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey,
+                                                    staking_block_identifier=normal_aide.staking.staking_info.StakingBlockNum)
     logger.info(result)
     amount_after = normal_aide.platon.get_balance(delegate_address)
     logger.info("The wallet balance:{}".format(amount_after))
@@ -139,7 +114,7 @@ def test_ROE_006_008(normal_aide):
     :return:
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
+    normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
 
     value = normal_aide.delegate._economic.delegate_limit
     delegate_address, delegate_prikey = generate_account(normal_aide, value * 4)
@@ -175,7 +150,7 @@ def test_ROE_010(normal_aide):
     logger.info(msg)
     # create staking
     staking_address, staking_prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
-    normal_aide.staking.create_staking(benifit_address=staking_address, private_key=staking_prikey)
+    normal_aide.staking.create_staking(benefit_address=staking_address, private_key=staking_prikey)
 
     delegate_amount = normal_aide.web3.toVon(500, 'lat')
     # Lock account authorization
@@ -199,5 +174,3 @@ def test_ROE_010(normal_aide):
     amount_after = normal_aide.platon.get_balance(delegate_address)
     logger.info("The wallet balance:{}".format(amount_after))
     assert undelegate_amount - (amount_after - amount) < normal_aide.web3.toVon(1, 'lat')
-
-
