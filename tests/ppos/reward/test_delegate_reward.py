@@ -13,7 +13,7 @@ def create_restricting_plan(aide):
     plan = [
         {'Epoch': 5, 'Amount': aide.web3.toVon(1000, 'lat')}
     ]
-    result = aide.transfer.restricting(release_address=restrict_address,
+    result = aide.restricting.restricting(release_address=restrict_address,
                                        plans=plan, private_key=prikey)
     assert result.status == 1   # TODO 旧框架这里验证 code == 0
     return restrict_address, restrict_prikey
@@ -66,7 +66,7 @@ def test_EI_BC_083(normal_aides):
     balance_settlement_2 = normal_aide1.transfer.get_balance(restrict_address)
     logger.info(f"balance_settlement_2 :{balance_settlement_2}")
     # 链上全质押奖励 与 单出块奖励
-    chain_staking_reward, chain_block_reward = normal_aide1.calculator.get_rewards_from_epoch()
+    chain_staking_reward, chain_block_reward = normal_aide1.calculator.get_reward_info()
     logger.info(f'链上奖励: chain_staking_reward:{chain_staking_reward}, chain_block_reward:{chain_block_reward}')
     wait_settlement(normal_aide1)
 
