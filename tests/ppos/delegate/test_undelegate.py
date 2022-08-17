@@ -683,7 +683,7 @@ def test_ROE_038(normal_aide):
 @pytest.mark.P2
 def test_ROE_039(normal_aide):
     """
-    # TODO: test_039 error
+
     """
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
@@ -715,17 +715,14 @@ def test_ROE_039(normal_aide):
     restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
     logger.info(f'restrict_info: {restrict_info}')
 
-    assert delegate_amount - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
+    assert delegate_limit - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
     assert restrict_info["Pledge"] == delegate_limit
-    '''
-    2022-08-17 17:40:20.119 | INFO     | test_undelegate:test_ROE_039:695 - restrict_info: {'balance': 500000000000000000000, 'debt': 0, 'plans': [{'blockNumber': 320, 'amount': 500000000000000000000}], 'Pledge': 0}
-    2022-08-17 17:40:23.707 | INFO     | test_undelegate:test_ROE_039:704 - wallet balance:199469999798296000000000
-    2022-08-17 17:40:23.728 | INFO     | test_undelegate:test_ROE_039:707 - restrict_info: {'balance': 500000000000000000000, 'debt': 0, 'plans': [{'blockNumber': 320, 'amount': 500000000000000000000}], 'Pledge': 20000000000000000000}
-    2022-08-17 17:40:25.519 | INFO     | test_undelegate:withdrew_delegate_wallet_balance:419 - withdrew_delegate_wallet_balance wallet balance:199479999761944000000000
-    2022-08-17 17:40:25.539 | INFO     | test_undelegate:test_ROE_039:713 - restrict_info: {'balance': 500000000000000000000, 'debt': 0, 'plans': [{'blockNumber': 320, 'amount': 500000000000000000000}], 'Pledge': 10000000000000000000}
-    >       assert delegate_amount - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
-    E       AssertionError: assert (20000000000000000000 - (199479999761944000000000 - 199469999798296000000000)) < 1000000000000000000
-    '''
+
+    wait_settlement(normal_aide)
+    release_amount = lockup_amount - delegate_limit
+    end_balance = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"wallet balance:{end_balance}")
+    assert end_balance == wit_del_amt + release_amount
 
 
 @pytest.mark.P1
