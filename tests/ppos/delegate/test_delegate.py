@@ -91,7 +91,7 @@ def test_DI_005(init_aide):
     # TODO 这里直接抛出错误了,和期望不符合,预估gas
     """
     address, prikey = generate_account(init_aide, init_aide.delegate._economic.delegate_limit * 2)
-    result = init_aide.delegate.delegate(private_key=prikey, txn={'gas': 4000000, 'gasPrice': 10000000000})
+    result = init_aide.delegate.delegate(private_key=prikey)
     logger.info(result)
     assert ERROR_CODE[301107] == result.message
 
@@ -166,10 +166,9 @@ def test_DI_010(normal_aide):
     assert ERROR_CODE[301102] == result.message
 
 
-@allure.title("Delegate to different people{status}")
+@allure.title("Delegate to different people")
 @pytest.mark.P1
-@pytest.mark.parametrize('status', [0, 1, 2, 3])
-def test_DI_011_012_013_014(normal_aide, status):
+def test_DI_011_012_013_014(normal_aide):
     """
     0:A valid candidate whose commission is still in doubt
     1:The delegate is also a valid candidate at a lockup period
@@ -178,41 +177,30 @@ def test_DI_011_012_013_014(normal_aide, status):
     """
     address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.staking.create_staking(benefit_address=address, private_key=prikey)
-
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 5)
-    if status == 0:
-        # A valid candidate whose commission is still in doubt
-        delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-        logger.debug(f"0: {delegate_result}")
-        assert delegate_result['code'] == 0
 
-    if status == 1:
-        # The delegate is also a valid candidate at a lockup period
-        wait_settlement(normal_aide)
-        delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-        logger.debug(f"1: {delegate_result}")
-        assert delegate_result['code'] == 0
+    # A valid candidate whose commission is still in doubt
+    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
+    assert delegate_result['code'] == 0
 
-    if status == 2:
-        # A candidate whose mandate is voluntarily withdrawn but who is still in the freeze period
-        wait_settlement(normal_aide)
-        withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
-        assert withdrew_staking_result['code'] == 0
-        logger.info(f'withdrew_staking_result={withdrew_staking_result}')
-        delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-        logger.info(f'delegate_result={delegate_result}')
-        assert ERROR_CODE[301103] == delegate_result.message
+    # The delegate is also a valid candidate at a lockup period
+    wait_settlement(normal_aide)
+    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
+    assert delegate_result['code'] == 0
 
-    if status == 3:
-        # A candidate whose mandate has been voluntarily withdrawn and whose freeze period has expired
-        wait_settlement(normal_aide)
-        withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
-        assert withdrew_staking_result['code'] == 0
-        logger.info(f'withdrew_staking_result={withdrew_staking_result}')
-        wait_settlement(normal_aide, 2)
-        delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-        logger.info(f'delegate_result={delegate_result}')
-        assert ERROR_CODE[301102] == delegate_result.message
+    # A candidate whose mandate is voluntarily withdrawn but who is still in the freeze period
+    wait_settlement(normal_aide)
+    withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
+    assert withdrew_staking_result['code'] == 0
+    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
+    logger.info(f'delegate_result={delegate_result}')
+    assert ERROR_CODE[301103] == delegate_result.message
+
+    # A candidate whose mandate has been voluntarily withdrawn and whose freeze period has expired
+    wait_settlement(normal_aide, 2)
+    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
+    logger.info(f'delegate_result={delegate_result}')
+    assert ERROR_CODE[301102] == delegate_result.message
 
 
 @allure.title("Delegate to candidates whose penalties have lapsed (freeze period and after freeze period)")
@@ -241,10 +229,8 @@ def test_DI_015_016(normal_aide, init_aide):
         if candidate_info.Released < staking_limit:
             break
         logger.info("Node exceptions are not penalized")
-    # todo: ws重连问题待解决
     normal_aide.node.start()
     logger.info("Restart the node")
-    time.sleep(3)
     delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
     logger.info(delegate_result)
     assert ERROR_CODE[301103] == delegate_result.message
@@ -419,8 +405,7 @@ def test_DI_025(normal_aide):
     025: 没有被委托过的信息
     """
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    result = normal_aide.delegate.get_delegate_list(address=delegate_address)
-    logger.info(result)
+    assert not normal_aide.delegate.get_delegate_list(address=delegate_address)
     # assert_code(result, 301203)
 
 
@@ -458,9 +443,8 @@ def test_DI_027(normal_aide):
 
     result = normal_aide.delegate.delegate(node_id=illegal_node_id, private_key=delegate_prikey)
     logger.info(result)
-    delegate_list = normal_aide.delegate.get_delegate_list(address=delegate_address)
-    logger.info(delegate_list)
-    # assert_code(result, 301203)
+    assert ERROR_CODE[301102] == result.message
+    assert not normal_aide.delegate.get_delegate_list(address=delegate_address)
 
 
 @allure.title("The entrusted candidate is invalid")
@@ -523,20 +507,15 @@ def test_DI_031(normal_aide):
                                        amount=normal_aide.delegate._economic.staking_limit, )
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    logger.info(delegate_result)
-    assert delegate_result['code'] == 0
+    assert normal_aide.delegate.delegate(private_key=delegate_prikey)['code'] == 0
 
     msg = normal_aide.staking.staking_info
 
-    result = normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey)
-    logger.info(result)
-    assert result['code'] == 0
+    assert normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey) == 0
 
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
-    logger.info(result)
-    # assert_code(result, 301205)
+    assert result is None  # 查委托信息，验证没有委托信息则返回None（之前旧框架返回异常code码）
 
 
 @allure.title("The commission information is still in the hesitation period & The delegate information is still locked")
@@ -590,7 +569,7 @@ def test_DI_034(normal_aide):
     msg = normal_aide.staking.staking_info
 
     # Exit the pledge
-    withdrew_staking_result = normal_aide.staking.withdrew_staking(private_key=prikey)
+    _ = normal_aide.staking.withdrew_staking(private_key=prikey)
 
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
@@ -633,7 +612,8 @@ def test_DI_035_036(normal_aide, init_aide):
         if candidate_info.Released < value:
             break
 
-    result = init_aide.delegate.get_delegate_info(address=delegate_address, staking_block_identifier=msg.StakingBlockNum)
+    result = init_aide.delegate.get_delegate_info(address=delegate_address, node_id=normal_aide.node.node_id,
+                                                  staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
     assert result.Addr == delegate_address
     assert result.NodeId == normal_aide.node.node_id
@@ -642,7 +622,8 @@ def test_DI_035_036(normal_aide, init_aide):
     logger.info("Next settlement period")
     wait_settlement(init_aide, 2)
 
-    result = init_aide.delegate.get_delegate_info(address=delegate_address, staking_block_identifier=msg.StakingBlockNum)
+    result = normal_aide.delegate.get_delegate_info(address=delegate_address,
+                                                    staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
     assert result.Addr == delegate_address
     assert result.NodeId == normal_aide.node.node_id
