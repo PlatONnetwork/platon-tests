@@ -1,4 +1,5 @@
 import time
+from collections import namedtuple
 
 import pytest
 from platon._utils.error_code import ERROR_CODE
@@ -26,7 +27,7 @@ def test_ROE_001_007_015(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_002(normal_aide):
+def test_ROE_002_059(normal_aide):
     """
     1.发起质押和委托
     2.赎回委托时 gas too low
@@ -41,6 +42,11 @@ def test_ROE_002(normal_aide):
     with pytest.raises(ValueError) as exception_info:
         normal_aide.delegate.withdrew_delegate(txn={"gas": 1}, private_key=delegate_pk)
 
+    assert str(exception_info.value) == "{'code': -32000, 'message': 'intrinsic gas too low'}"
+
+    wait_settlement(normal_aide)
+    with pytest.raises(ValueError) as exception_info:
+        normal_aide.delegate.withdrew_delegate(txn={"gas": 10}, private_key=delegate_pk)
     assert str(exception_info.value) == "{'code': -32000, 'message': 'intrinsic gas too low'}"
 
 
@@ -65,7 +71,7 @@ def test_ROE_003(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_004(normal_aide):
+def test_ROE_004_055(normal_aide):
     """
     1.发起质押和委托
     2.赎回委托金额 > 委托金额
@@ -77,6 +83,12 @@ def test_ROE_004(normal_aide):
     delegate_address, delegate_pk = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
     assert normal_aide.delegate.delegate(private_key=delegate_pk)['code'] == 0
 
+    result = normal_aide.delegate.withdrew_delegate(amount=normal_aide.delegate._economic.delegate_limit + 1,
+                                                    private_key=delegate_pk)
+    logger.info(result)
+    assert ERROR_CODE[301113] == result['message']
+
+    wait_settlement(normal_aide)
     result = normal_aide.delegate.withdrew_delegate(amount=normal_aide.delegate._economic.delegate_limit + 1,
                                                     private_key=delegate_pk)
     logger.info(result)
@@ -392,7 +404,10 @@ def create_staking_delegate_wallet_balance(aide, delegate_amount=None):
     sta_del_amt = aide.platon.get_balance(delegate_addr)
     logger.info(f"create_staking_delegate wallet balance:{sta_del_amt}")
 
-    return StakingBlockNum, delegate_addr, delegate_pk, sta_del_amt
+    StaDel = namedtuple("StaDel", ['staking_addr', 'staking_pk', 'StakingBlockNum', 'delegate_addr', 'delegate_pk',
+                                   'sta_del_amt', ])
+
+    return StaDel._make([staking_addr, staking_pk, StakingBlockNum, delegate_addr, delegate_pk, sta_del_amt])
 
 
 def withdrew_delegate_wallet_balance(aide, staking_block_num, del_addr, del_pk, undelegate_amt=None):
@@ -422,18 +437,18 @@ def test_ROE_019_021(normal_aide):
         2.进入 锁定期(等待至解锁期并领取)
     """
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 3
-    StakingBlockNum, delegate_addr, delegate_pk, sta_del_amt = create_staking_delegate_wallet_balance(normal_aide,
-                                                                                                      delegate_amount=delegate_amount)
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
 
     undelegate_amount = normal_aide.delegate._economic.delegate_limit * 2
-    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, StakingBlockNum, delegate_addr, delegate_pk,
-                                                   undelegate_amount)
-    assert wit_del_amt - sta_del_amt < normal_aide.web3.toVon(1, "lat")
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr,
+                                                   sd_gather.delegate_pk, undelegate_amount)
+    assert wit_del_amt - sd_gather.sta_del_amt < normal_aide.web3.toVon(1, "lat")
 
     wait_settlement(normal_aide)
 
-    red_del_amt = redeem_delegate_wallet_balance(normal_aide, delegate_addr, delegate_pk)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
     assert undelegate_amount - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
 
 
@@ -447,17 +462,17 @@ def test_ROE_020(normal_aide):
         2.进入 锁定期(等待至解锁期并领取)
     """
     delegate_amount = normal_aide.delegate._economic.delegate_limit
-    StakingBlockNum, delegate_addr, delegate_pk, sta_del_amt = create_staking_delegate_wallet_balance(normal_aide,
-                                                                                                      delegate_amount=delegate_amount)
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
     undelegate_amount = normal_aide.delegate._economic.delegate_limit
-    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, StakingBlockNum, delegate_addr, delegate_pk,
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk,
                                                    undelegate_amount)
-    assert wit_del_amt - sta_del_amt < normal_aide.web3.toVon(1, "lat")
+    assert wit_del_amt - sd_gather.sta_del_amt < normal_aide.web3.toVon(1, "lat")
 
     wait_settlement(normal_aide)
 
-    red_del_amt = redeem_delegate_wallet_balance(normal_aide, delegate_addr, delegate_pk)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
     assert undelegate_amount - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
 
 
@@ -476,32 +491,33 @@ def test_ROE_024(normal_aide):
         1.释放锁仓计划 锁定金额(500-200) 释放金额(1000 - 锁定金额(500-200))
     """
     delegate_amount = normal_aide.web3.toVon(500, "lat")
-    StakingBlockNum, delegate_addr, delegate_pk, sta_del_amt = create_staking_delegate_wallet_balance(normal_aide,
-                                                                                                      delegate_amount=delegate_amount)
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     # Create a lock plan
     lockup_amount = normal_aide.web3.toVon(1000, "lat")
     plan = [{'Epoch': 3, 'Amount': lockup_amount}]
-    assert normal_aide.restricting.restricting(release_address=delegate_addr,
-                                               plans=plan, private_key=delegate_pk)['code'] == 0
-    restrict_info = normal_aide.restricting.get_restricting_info(release_address=delegate_addr)
+    assert normal_aide.restricting.restricting(release_address=sd_gather.delegate_addr,
+                                               plans=plan, private_key=sd_gather.delegate_pk)['code'] == 0
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
     logger.info(f'restrict_info: {restrict_info}')
-    assert normal_aide.delegate.delegate(amount=delegate_amount, balance_type=1, private_key=delegate_pk)['code'] == 0
+    assert normal_aide.delegate.delegate(amount=delegate_amount, balance_type=1, private_key=sd_gather.delegate_pk)[
+               'code'] == 0
 
     wait_settlement(normal_aide)
     undelegate_amount = normal_aide.web3.toVon(700, "lat")
-    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, StakingBlockNum, delegate_addr, delegate_pk,
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk,
                                                    undelegate_amount)
 
     wait_settlement(normal_aide)
-    red_del_amt = redeem_delegate_wallet_balance(normal_aide, delegate_addr, delegate_pk)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
     assert delegate_amount - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
 
     wait_settlement(normal_aide)
     locked_delegate = delegate_amount - (undelegate_amount - delegate_amount)
-    restrict_info = normal_aide.restricting.get_restricting_info(release_address=delegate_addr)
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
     logger.info(f'restrict_info: {restrict_info}')
     assert restrict_info["Pledge"] == locked_delegate
-    release_restrict_amt = normal_aide.platon.get_balance(delegate_addr)
+    release_restrict_amt = normal_aide.platon.get_balance(sd_gather.delegate_addr)
     logger.info("release_restrict wallet balance:{}".format(release_restrict_amt))
     assert release_restrict_amt - red_del_amt == lockup_amount - restrict_info["debt"]
 
@@ -517,49 +533,323 @@ def test_ROE_028(normal_aide):
         1.领取解锁委托
     """
     delegate_amount = normal_aide.web3.toVon(500, "lat")
-    StakingBlockNum, delegate_addr, delegate_pk, sta_del_amt = create_staking_delegate_wallet_balance(normal_aide,
-                                                                                                      delegate_amount=delegate_amount)
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
-    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, StakingBlockNum, delegate_addr, delegate_pk,
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk,
                                                    delegate_amount)
-    assert (wit_del_amt - sta_del_amt) < normal_aide.web3.toVon(1, "lat")
+    assert (wit_del_amt - sd_gather.sta_del_amt) < normal_aide.web3.toVon(1, "lat")
 
     wait_settlement(normal_aide)
-    red_del_amt = redeem_delegate_wallet_balance(normal_aide, delegate_addr, delegate_pk)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
     assert delegate_amount - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
 
 
 @pytest.mark.P1
 def test_ROE_030(normal_aide):
     """
-
+    - 犹豫期
+        1.发起质押和委托(自由金额500)
+        2.锁仓计划500
+        3.发起委托 锁仓500
+    - 结算期1
+        1.赎回委托1000 并查余额- 此时赎回的钱不会到账
+    - 结算期2
+        1.主动领取锁定期的委托金额
+    - 结算期3
+        1.释放锁仓计划 锁定金额(500-500) 释放金额(500 - 0)
     """
 
     delegate_amount = normal_aide.web3.toVon(500, "lat")
-    StakingBlockNum, delegate_addr, delegate_pk, sta_del_amt = create_staking_delegate_wallet_balance(normal_aide,
-                                                                                                      delegate_amount=delegate_amount)
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
     lockup_amount = normal_aide.web3.toVon(500, "lat")
     plan = [{'Epoch': 3, 'Amount': lockup_amount}]
-    assert normal_aide.restricting.restricting(release_address=delegate_addr,
-                                               plans=plan, private_key=delegate_pk)['code'] == 0
-    restrict_info = normal_aide.restricting.get_restricting_info(release_address=delegate_addr)
+    assert normal_aide.restricting.restricting(release_address=sd_gather.delegate_addr,
+                                               plans=plan, private_key=sd_gather.delegate_pk)['code'] == 0
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
     logger.info(f'restrict_info: {restrict_info}')
-    assert normal_aide.delegate.delegate(amount=delegate_amount, balance_type=1, private_key=delegate_pk)['code'] == 0
+    assert normal_aide.delegate.delegate(amount=delegate_amount, balance_type=1, private_key=sd_gather.delegate_pk)[
+               'code'] == 0
 
     wait_settlement(normal_aide)
 
     undelegate_amount = normal_aide.web3.toVon(1000, "lat")
-    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, StakingBlockNum, delegate_addr, delegate_pk,
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk,
                                                    undelegate_amount)
 
     wait_settlement(normal_aide)
-    red_del_amt = redeem_delegate_wallet_balance(normal_aide, delegate_addr, delegate_pk)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
     assert delegate_amount - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
 
     wait_settlement(normal_aide)
-    restrict_info = normal_aide.restricting.get_restricting_info(release_address=delegate_addr)
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
     logger.info(f'restrict_info: {restrict_info}')
-    release_restrict_amt = normal_aide.platon.get_balance(delegate_addr)
+    release_restrict_amt = normal_aide.platon.get_balance(sd_gather.delegate_addr)
     logger.info("release_restrict wallet balance:{}".format(release_restrict_amt))
     assert release_restrict_amt - red_del_amt == delegate_amount
+
+
+@pytest.mark.P2
+def test_ROE_031(normal_aide):
+    """
+    # TODO: 和旧逻辑有点不一致
+    """
+    delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+    wait_settlement(normal_aide)
+    assert normal_aide.delegate.delegate(balance_type=0, private_key=sd_gather.delegate_pk)['code'] == 0
+    assert normal_aide.staking.withdrew_staking(private_key=sd_gather.staking_pk)['code'] == 0
+    balance1 = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"The wallet balance:{balance1}")
+
+    undelegate_amount = normal_aide.delegate._economic.delegate_limit
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk, undelegate_amount)
+    assert undelegate_amount - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
+
+
+@pytest.mark.P2
+def test_ROE_032_035(normal_aide):
+    delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+    wait_settlement(normal_aide)
+
+    assert normal_aide.delegate.delegate(amount=delegate_amount, balance_type=0,
+                                         private_key=sd_gather.delegate_pk)['code'] == 0
+
+    balance1 = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"wallet balance:{balance1}")
+
+    undelegate_amount = delegate_amount + normal_aide.web3.toVon(1, "lat")
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk, undelegate_amount)
+    # 只赎回了犹豫期自由金额 delegate_amount
+    assert delegate_amount - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
+    wait_settlement(normal_aide)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
+    assert normal_aide.web3.toVon(1, "lat") - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
+
+
+@pytest.mark.P2
+def test_ROE_033_034(normal_aide):
+    delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+    wait_settlement(normal_aide)
+
+    assert normal_aide.delegate.delegate(balance_type=0, private_key=sd_gather.delegate_pk)['code'] == 0
+    balance1 = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"wallet balance:{balance1}")
+
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk)
+    wait_settlement(normal_aide)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
+    delegate_limit = normal_aide.delegate._economic.delegate_limit
+    assert delegate_limit - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
+
+
+@pytest.mark.P2
+def test_ROE_038(normal_aide):
+    delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+    wait_settlement(normal_aide)
+    # create restricting
+    lockup_amount = normal_aide.web3.toVon(500, "lat")
+    plan = [{'Epoch': 1, 'Amount': lockup_amount}]
+    assert normal_aide.restricting.restricting(release_address=sd_gather.delegate_addr,
+                                               plans=plan, private_key=sd_gather.delegate_pk)['code'] == 0
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
+    logger.info(f'restrict_info: {restrict_info}')
+
+    assert normal_aide.delegate.delegate(balance_type=1, private_key=sd_gather.delegate_pk)['code'] == 0
+    assert normal_aide.delegate.delegate(balance_type=0, private_key=sd_gather.delegate_pk)['code'] == 0
+
+    balance1 = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"wallet balance:{balance1}")
+
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk)
+
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
+    logger.info(f'restrict_info: {restrict_info}')
+
+    delegate_limit = normal_aide.delegate._economic.delegate_limit
+    assert delegate_limit - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
+    assert restrict_info["Pledge"] == delegate_limit
+
+
+@pytest.mark.P2
+def test_ROE_039(normal_aide):
+    """
+
+    """
+    delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+    wait_settlement(normal_aide)
+
+    # create restricting
+    lockup_amount = normal_aide.web3.toVon(500, "lat")
+    plan = [{'Epoch': 1, 'Amount': lockup_amount}]
+    assert normal_aide.restricting.restricting(release_address=sd_gather.delegate_addr,
+                                               plans=plan, private_key=sd_gather.delegate_pk)['code'] == 0
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
+    logger.info(f'restrict_info: {restrict_info}')
+
+    assert normal_aide.delegate.delegate(balance_type=1, private_key=sd_gather.delegate_pk,
+                                         amount=delegate_amount)['code'] == 0
+    delegate_limit = normal_aide.delegate._economic.delegate_limit
+    assert normal_aide.delegate.delegate(balance_type=0, private_key=sd_gather.delegate_pk,
+                                         amount=delegate_limit)['code'] == 0
+
+    balance1 = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"wallet balance:{balance1}")
+
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
+    logger.info(f'restrict_info: {restrict_info}')
+
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum, sd_gather.delegate_addr,
+                                                   sd_gather.delegate_pk, delegate_amount)
+
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
+    logger.info(f'restrict_info: {restrict_info}')
+
+    assert delegate_limit - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
+    assert restrict_info["Pledge"] == delegate_limit
+
+    wait_settlement(normal_aide)
+    release_amount = lockup_amount - delegate_limit
+    end_balance = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"wallet balance:{end_balance}")
+    assert end_balance == wit_del_amt + release_amount
+
+
+@pytest.mark.P1
+def test_ROE_042(normal_aide):
+    """
+    - 犹豫期
+        1.发起质押和委托(200)
+        2.锁仓计划 1000
+        3.锁仓委托 200
+    - 结算期1
+        1.发起委托(自由金额300 锁仓300)
+        2.赎回委托700
+    - 验证:赎回自由金额400 其他等待锁仓计划释放
+    """
+    delegate_amount = normal_aide.web3.toVon(200, "lat")
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+
+    lockup_amount = normal_aide.web3.toVon(1000, "lat")
+    plan = [{'Epoch': 3, 'Amount': lockup_amount}]
+    assert normal_aide.restricting.restricting(release_address=sd_gather.delegate_addr,
+                                               plans=plan, private_key=sd_gather.delegate_pk)['code'] == 0
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
+    logger.info(f'restrict_info: {restrict_info}')
+    assert normal_aide.delegate.delegate(amount=delegate_amount, balance_type=1,
+                                         private_key=sd_gather.delegate_pk)['code'] == 0
+
+    wait_settlement(normal_aide)
+    delegate_amount_2 = normal_aide.web3.toVon(300, "lat")
+    assert normal_aide.delegate.delegate(amount=delegate_amount_2, balance_type=0,
+                                         private_key=sd_gather.delegate_pk)['code'] == 0
+    assert normal_aide.delegate.delegate(amount=delegate_amount_2, balance_type=1,
+                                         private_key=sd_gather.delegate_pk)['code'] == 0
+
+    undelegate_amount = normal_aide.web3.toVon(700, "lat")
+    wit_del_ago = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"wit_del_ago: {wit_del_ago}")
+
+    wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
+                                                   sd_gather.delegate_addr, sd_gather.delegate_pk,
+                                                   undelegate_amount)
+    # 赎回犹豫期自由金额300
+    assert delegate_amount_2 - (wit_del_amt - wit_del_ago) < normal_aide.web3.toVon(1, "lat")
+
+    wait_settlement(normal_aide)
+    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
+
+    other_cycle_amt = undelegate_amount - delegate_amount_2 * 2  # 其他周期100 = 赎回委托700 - 犹豫期(自由金额300 + 锁仓金额300)
+    withdrew_amt = delegate_amount_2 + other_cycle_amt  # 赎回总金额 = 自由金额[犹豫期300 + 生效期100]
+
+    assert other_cycle_amt - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
+    assert withdrew_amt - (red_del_amt - wit_del_ago) < normal_aide.web3.toVon(1, "lat")
+
+    wait_settlement(normal_aide)
+    restrict_info = normal_aide.restricting.get_restricting_info(release_address=sd_gather.delegate_addr)
+    logger.info(f'restrict_info: {restrict_info}')
+
+    release_restrict_amt = normal_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info("release_restrict wallet balance:{}".format(release_restrict_amt))
+    assert release_restrict_amt - red_del_amt == lockup_amount - restrict_info["debt"]
+
+
+@pytest.mark.P1
+def test_ROE_056_057(normal_aide, init_aide):
+    """
+    # TODO 还未迁移
+    """
+    delegate_amount = normal_aide.delegate._economic.delegate_limit
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+    # wait_settlement(normal_aide)
+
+    staking_info = normal_aide.staking.staking_info
+    logger.info(f"staking_info: {staking_info}")
+    # staking_info: StakingInfo({'NodeId': '', 'BlsPubKey': '', 'StakingAddress': 'lat1zwlvmc572jkqxq7sd9c0m4uw2kqq4de353q5yw',
+    # 'BenefitAddress': 'lat1zwlvmc572jkqxq7sd9c0m4uw2kqq4de353q5yw', 'RewardPer': 0, 'NextRewardPer': 0, 'RewardPerChangeEpoch': 1,
+    # 'StakingTxIndex': 0, 'ProgramVersion': 66304, 'Status': 0, 'StakingEpoch': 1, 'StakingBlockNum': 9, 'Shares': 100010000000000000000000,
+    # 'Released': 100000000000000000000000, 'ReleasedHes': 0, 'RestrictingPlan': 0, 'RestrictingPlanHes': 0, 'DelegateEpoch': 1,
+    # 'DelegateTotal': 10000000000000000000, 'DelegateTotalHes': 0, 'DelegateRewardTotal': 0, 'ExternalId': '', 'NodeName': '',
+    # 'Website': '', 'Details': ''})
+    staking_released = staking_info.Released
+    # 链上全质押奖励 与 单出块奖励
+    chain_staking_reward, chain_block_reward = normal_aide.calculator.get_reward_info()
+    # max_validators = normal_aide.staking._economic.maxValidators
+    node_staking_reward = normal_aide.calculator.calc_staking_reward(chain_staking_reward, 5)
+    slash_blocks = None
+    res = normal_aide.govern.govern_param_list()
+    logger.info(f"{res}")
+
+
+@pytest.mark.P3
+def test_ROE_058(normal_aide):
+    """
+    账户余额不足
+    """
+    delegate_amount = normal_aide.delegate._economic.delegate_limit
+    sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
+    with pytest.raises(ValueError) as exception_info:
+        normal_aide.delegate.withdrew_delegate(staking_block_identifier=sd_gather.StakingBlockNum,
+                                               private_key=sd_gather.delegate_pk,
+                                               txn={"gasPrice": sd_gather.sta_del_amt})
+    logger.info("str(exception_info.value)")
+    assert '-32000' in str(exception_info.value)
+
+
+@pytest.mark.P1
+def test_ROE_060(normal_aide):
+    """
+    质押 赎回质押 过了冻结期 再次质押和委托、赎回委托
+    """
+    delegate_limit = normal_aide.delegate._economic.delegate_limit
+    staking_addr, staking_pk = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
+    assert normal_aide.staking.create_staking(benefit_address=staking_addr, private_key=staking_pk)['code'] == 0
+    StakingBlockNum = normal_aide.staking.staking_info.StakingBlockNum
+    logger.info(f"one staking_block_num: {StakingBlockNum}")
+
+    wait_settlement(normal_aide)
+    assert normal_aide.staking.withdrew_staking(private_key=staking_pk)['code'] == 0
+
+    wait_settlement(normal_aide, settlement=2)
+    assert normal_aide.staking.create_staking(benefit_address=staking_addr, private_key=staking_pk)['code'] == 0
+    StakingBlockNum = normal_aide.staking.staking_info.StakingBlockNum
+    logger.info(f"two staking_block_num: {StakingBlockNum}")
+
+    delegate_addr, delegate_pk = generate_account(normal_aide, delegate_limit * 2)
+    assert normal_aide.delegate.delegate(balance_type=0, private_key=delegate_pk)['code'] == 0
+
+    amount1 = normal_aide.platon.get_balance(delegate_addr)
+    assert normal_aide.delegate.withdrew_delegate(private_key=delegate_pk,
+                                                  staking_block_identifier=StakingBlockNum)['code'] == 0
+    amount2 = normal_aide.platon.get_balance(delegate_addr)
+    assert delegate_limit - (amount2 - amount1) < normal_aide.web3.toVon(1, "lat")
