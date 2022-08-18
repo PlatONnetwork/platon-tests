@@ -1,6 +1,7 @@
 from typing import List
 
 from loguru import logger
+from platon_aide.economic import Economic
 
 from lib import utils
 from lib.funcs import wait_settlement
@@ -14,8 +15,8 @@ def create_restricting_plan(aide):
         {'Epoch': 5, 'Amount': aide.web3.toVon(1000, 'lat')}
     ]
     result = aide.restricting.restricting(release_address=restrict_address,
-                                       plans=plan, private_key=prikey)
-    assert result.status == 1   # TODO 旧框架这里验证 code == 0
+                                          plans=plan, private_key=prikey)
+    assert result['code'] == 0  # TODO 旧框架这里验证 code == 0
     return restrict_address, restrict_prikey
 
 
@@ -63,30 +64,39 @@ def test_EI_BC_083(normal_aides):
     wait_settlement(normal_aide1)
 
     logger.info(f"Current block height :{normal_aide1.platon.block_number}")
-    balance_settlement_2 = normal_aide1.transfer.get_balance(restrict_address)
+    balance_settlement_2 = normal_aide1.platon.get_balance(restrict_address)
     logger.info(f"balance_settlement_2 :{balance_settlement_2}")
     # 链上全质押奖励 与 单出块奖励
     chain_staking_reward, chain_block_reward = normal_aide1.calculator.get_reward_info()
     logger.info(f'链上奖励: chain_staking_reward:{chain_staking_reward}, chain_block_reward:{chain_block_reward}')
+    verifier_count = normal_aide1.calculator.get_verifier_count()
     wait_settlement(normal_aide1)
 
     logger.info(f"Current block height :{normal_aide1.platon.block_number}")
-    block_num = normal_aide1.calculator.get_blocks_from_miner(start=160, end=320, node_id=normal_aide1.node.node_id)
-    logger.info(f"normal_aide1 block_num : {block_num}")
+    # block_num = normal_aide1.calculator.get_blocks_from_miner(start=160, end=320, node_id=normal_aide1.node.node_id)
+    block_num1 = utils.get_block_count_number(normal_aide1, roundnum=5)
+    logger.info(f"normal_aide1 block_num : {block_num1}")
+
+    block_num2 = utils.get_block_count_number(normal_aide1, roundnum=5)
+    logger.info(f"normal_aide2 block_num : {block_num2}")
+
     # 节点奖励信息
     # max_validators = normal_aide1.staking._economic.maxValidators
-    node_staking_reward = normal_aide1.calculator.calc_staking_reward(chain_staking_reward, 5)
-    logger.info(f'节点奖励: node_staking_reward: {node_staking_reward}, node_block_reward: {chain_block_reward}')
+    # node_staking_reward = normal_aide1.calculator.calc_staking_reward(chain_staking_reward, 5)
+    # logger.info(f'节点奖励: node_staking_reward: {node_staking_reward}, node_block_reward: {chain_block_reward}')
 
-    _, node1_reward = normal_aide1.calculator.calc_delegate_reward(node_staking_reward,chain_block_reward,block_num,
-                                                                1000, delegate_limit * 2, delegate_limit * 2)
+    node1_reward = normal_aide1.calculator.calc_delegate_reward(chain_staking_reward, verifier_count,
+                                                                chain_block_reward, block_num1,
+                                                                normal_aide1.staking.staking_info.RewardPer)
     logger.info(f'node1_reward: {node1_reward}')
 
-    block_num = normal_aide2.calculator.get_blocks_from_miner(start=160, end=320, node_id=normal_aide2.node.node_id)
-    logger.info(f"normal_aide2 block_num : {block_num}")
-    _, node2_reward = normal_aide2.calculator.calc_delegate_reward(node_staking_reward, chain_block_reward, block_num,
-                                                                   2000,delegate_limit * 2, delegate_limit * 2)
+    node2_reward = normal_aide1.calculator.calc_delegate_reward(chain_staking_reward, verifier_count,
+                                                                chain_block_reward, block_num2,
+                                                                normal_aide2.staking.staking_info.RewardPer)
     logger.info(f'node2_reward: {node2_reward}')
+
+
+
 
     # 计算提取奖励 gas_fee
     gas_fee = utils.withdraw_delegate_reward_gas_fee(normal_aide1, staking_num=2, uncalcwheels=2)

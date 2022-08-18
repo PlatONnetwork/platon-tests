@@ -26,8 +26,8 @@ def chain(request):
     # todo：优化等待链出块的方式
     time.sleep(3)
 
-    yield chain
-    chain.uninstall()
+    # yield chain
+    # chain.uninstall()
 
 
 @pytest.fixture
