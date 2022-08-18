@@ -4,7 +4,7 @@ from collections import namedtuple
 import pytest
 from platon._utils.error_code import ERROR_CODE
 
-from lib.funcs import wait_settlement
+from lib.funcs import wait_settlement, wait_consensus
 from tests.conftest import generate_account
 from loguru import logger
 
@@ -981,7 +981,7 @@ def test_ROE_045(normal_aide):
 
     wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum, sd_gather.delegate_addr,
                                                    sd_gather.delegate_pk, delegate_amount)
-    assert delegate_amount - (wit_del_amt - balance1) <  normal_aide.web3.toVon(1, "lat")
+    assert delegate_amount - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
 
 
 @pytest.mark.P2
@@ -1029,7 +1029,6 @@ def test_ROE_049(normal_aide):
     balance1 = normal_aide.platon.get_balance(sd_gather.delegate_addr)
     logger.info(f"wallet balance:{balance1}")
 
-
     undelegate_amount = delegate_amount * 3
     wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum, sd_gather.delegate_addr,
                                                    sd_gather.delegate_pk, undelegate_amount)
@@ -1048,48 +1047,47 @@ def test_ROE_049(normal_aide):
 @pytest.mark.P1
 def test_ROE_056_057(normal_aide, init_aide):
     """
-    # TODO 还未迁移
+    关闭节点后 领取委托
     """
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
+    delegate_limit = normal_aide.delegate._economic.delegate_limit
+    normal_aide_node_id = normal_aide.node.node_id
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
 
-    staking_info = normal_aide.staking.staking_info
-    logger.info(f"staking_info: {staking_info}")
-
     normal_aide.node.stop()
-
     wait_settlement(init_aide)
-    try:
-        # 1.共识节点去查普通节点的 质押信息
-        staking_info = init_aide.staking.staking_info
-        print(f"staking_info: {staking_info}")
-    except Exception as e:
-        print(e)
 
-    init_aide_balance_1 = init_aide.platon.get_balance(sd_gather.delegate_addr)
-    logger.info(f"init_aide_balance_1:{init_aide_balance_1}")
+    # 1.共识节点去查普通节点的 质押信息
+    staking_info = init_aide.staking.get_candidate_info(node_id=normal_aide.node.node_id)
+    print(f"node.stop staking_info: {staking_info}")
 
-    assert init_aide.delegate.withdrew_delegate(staking_block_identifier=sd_gather.StakingBlockNum,
+    balance_1 = init_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"balance_1: {balance_1}")
+
+    assert init_aide.delegate.withdrew_delegate(amount=delegate_limit,
+                                                staking_block_identifier=sd_gather.StakingBlockNum,
                                                 private_key=sd_gather.delegate_pk,
-                                                node_id=normal_aide.node.node_id)['code'] == 0
+                                                node_id=normal_aide_node_id)['code'] == 0
+    wit_del_amt = init_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"withdrew_delegate_wallet_balance wallet balance:{wit_del_amt}")
+    wait_settlement(init_aide)
+    assert init_aide.delegate.redeem_delegate(private_key=sd_gather.delegate_pk)['code'] == 0
+    red_del_amt = init_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info("redeem_delegate_wallet_balance wallet balance:{}".format(red_del_amt))
+    assert delegate_limit - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(0.001, "lat")
 
-    init_aide_balance_2 = init_aide.platon.get_balance(sd_gather.delegate_addr)
-    logger.info(f"init_aide_balance_2:{init_aide_balance_2}")
-
-    delegate_limit = normal_aide.delegate._economic.delegate_limit
-    assert init_aide_balance_1 + delegate_limit - init_aide_balance_2 < init_aide.web3.toVon(0.001, "lat")
-
-    wait_settlement(init_aide, 1)
-    assert init_aide.delegate.withdrew_delegate(staking_block_identifier=sd_gather.StakingBlockNum,
+    assert init_aide.delegate.withdrew_delegate(amount=delegate_limit,
+                                                staking_block_identifier=sd_gather.StakingBlockNum,
                                                 private_key=sd_gather.delegate_pk,
-                                                node_id=normal_aide.node.node_id)['code'] == 0
-    init_aide_balance_3 = init_aide.platon.get_balance(sd_gather.delegate_addr)
-    logger.info(f"init_aide_balance_3:{init_aide_balance_3}")
-
-    assert init_aide_balance_2 + delegate_limit - init_aide_balance_3 < init_aide.web3.toVon(0.001, "lat")
-    logger.info(f"init_aide_balance_3:{init_aide_balance_3}")
-
+                                                node_id=normal_aide_node_id)['code'] == 0
+    wit_del_amt = init_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info(f"withdrew_delegate_wallet_balance wallet balance:{wit_del_amt}")
+    wait_settlement(init_aide)
+    assert init_aide.delegate.redeem_delegate(private_key=sd_gather.delegate_pk)['code'] == 0
+    red_del_amt = init_aide.platon.get_balance(sd_gather.delegate_addr)
+    logger.info("redeem_delegate_wallet_balance wallet balance:{}".format(red_del_amt))
+    assert delegate_limit - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(0.001, "lat")
 
 
 @pytest.mark.P3
