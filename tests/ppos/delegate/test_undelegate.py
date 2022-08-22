@@ -4,14 +4,14 @@ from collections import namedtuple
 import pytest
 from platon._utils.error_code import ERROR_CODE
 
-from lib.funcs import wait_settlement, wait_consensus
+from lib.funcs import wait_settlement
 from tests.conftest import generate_account
 from loguru import logger
 
 
 @pytest.mark.P0
 @pytest.mark.compatibility
-def test_ROE_001_007_015(normal_aide):
+def test_ROE_001_007_015(normal_aide, deploy_chain):
     """
     1.发起质押和委托
     2.在犹豫期赎回委托
@@ -27,7 +27,7 @@ def test_ROE_001_007_015(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_002_059(normal_aide):
+def test_ROE_002_059(normal_aide, deploy_chain):
     """
     1.发起质押和委托
     2.赎回委托时 gas too low
@@ -51,7 +51,7 @@ def test_ROE_002_059(normal_aide):
 
 
 @pytest.mark.P3
-def test_ROE_003(normal_aide):
+def test_ROE_003(normal_aide, deploy_chain):
     """
     1.发起质押和委托
     2.illegal_node_id 赎回委托
@@ -71,7 +71,7 @@ def test_ROE_003(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_004_055(normal_aide):
+def test_ROE_004_055(normal_aide, deploy_chain):
     """
     1.发起质押和委托
     2.赎回委托金额 > 委托金额
@@ -96,7 +96,7 @@ def test_ROE_004_055(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_005_018(normal_aide):
+def test_ROE_005_018(normal_aide, deploy_chain):
     """
     1.发起质押和委托
     2.犹豫期赎回质押
@@ -134,7 +134,7 @@ def test_ROE_005_018(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_006_008(normal_aide):
+def test_ROE_006_008(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.委托账户40 委托30 赎回20
@@ -159,7 +159,7 @@ def test_ROE_006_008(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_010(normal_aide):
+def test_ROE_010(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.质押+(锁仓计划1000)
@@ -208,7 +208,7 @@ def test_ROE_010(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_011(normal_aide):
+def test_ROE_011(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.质押+锁仓(锁仓1000)
@@ -270,7 +270,7 @@ def test_ROE_011(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_012(normal_aide):
+def test_ROE_012(normal_aide, deploy_chain):
     """
     1.发起质押和委托500
     2.赎回委托499 (低于最小委托值则全部赎回)
@@ -300,7 +300,7 @@ def test_ROE_012(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_014(normal_aide):
+def test_ROE_014(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.锁仓1000 * 10
@@ -344,7 +344,7 @@ def test_ROE_014(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_017(normal_aide):
+def test_ROE_017(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.发起质押和委托
@@ -428,7 +428,7 @@ def redeem_delegate_wallet_balance(aide, del_addr, del_pk):
 
 
 @pytest.mark.P1
-def test_ROE_019_021(normal_aide):
+def test_ROE_019_021(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.质押和委托(delegate_limit * 3)
@@ -453,7 +453,7 @@ def test_ROE_019_021(normal_aide):
 
 
 @pytest.mark.P0
-def test_ROE_020(normal_aide):
+def test_ROE_020(normal_aide, deploy_chain):
     """
      - 犹豫期
         1.质押和委托(delegate_limit)
@@ -477,7 +477,7 @@ def test_ROE_020(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_024(normal_aide):
+def test_ROE_024(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.发起质押和委托(自由金额500)
@@ -523,7 +523,7 @@ def test_ROE_024(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_028(normal_aide):
+def test_ROE_028(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.质押和委托(toVon(500, "lat"))
@@ -546,7 +546,7 @@ def test_ROE_028(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_030(normal_aide):
+def test_ROE_030(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.发起质押和委托(自由金额500)
@@ -592,7 +592,7 @@ def test_ROE_030(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_031(normal_aide):
+def test_ROE_031(normal_aide, deploy_chain):
     """
     # TODO: 和旧逻辑有点不一致
     """
@@ -611,7 +611,7 @@ def test_ROE_031(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_032_035(normal_aide):
+def test_ROE_032_035(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
@@ -633,7 +633,7 @@ def test_ROE_032_035(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_033_034(normal_aide):
+def test_ROE_033_034(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
@@ -651,7 +651,7 @@ def test_ROE_033_034(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_038(normal_aide):
+def test_ROE_038(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
@@ -681,7 +681,7 @@ def test_ROE_038(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_039(normal_aide):
+def test_ROE_039(normal_aide, deploy_chain):
     """
 
     """
@@ -726,7 +726,7 @@ def test_ROE_039(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_040(normal_aide):
+def test_ROE_040(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -755,7 +755,7 @@ def test_ROE_040(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_041(normal_aide):
+def test_ROE_041(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -782,7 +782,7 @@ def test_ROE_041(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_042_2(normal_aide):
+def test_ROE_042_2(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -832,7 +832,7 @@ def test_ROE_042_2(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_042(normal_aide):
+def test_ROE_042(normal_aide, deploy_chain):
     """
     - 犹豫期
         1.发起质押和委托(200)
@@ -891,7 +891,7 @@ def test_ROE_042(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_043(normal_aide):
+def test_ROE_043(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -930,7 +930,7 @@ def test_ROE_043(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_044(normal_aide):
+def test_ROE_044(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -968,7 +968,7 @@ def test_ROE_044(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_045(normal_aide):
+def test_ROE_045(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -985,7 +985,7 @@ def test_ROE_045(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_048(normal_aide):
+def test_ROE_048(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -1008,7 +1008,7 @@ def test_ROE_048(normal_aide):
 
 
 @pytest.mark.P2
-def test_ROE_049(normal_aide):
+def test_ROE_049(normal_aide, deploy_chain):
     delegate_amount = normal_aide.delegate._economic.delegate_limit * 2
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
 
@@ -1045,7 +1045,7 @@ def test_ROE_049(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_056_057(normal_aide, init_aide):
+def test_ROE_056_057(normal_aide, init_aide, deploy_chain):
     """
     关闭节点后 领取委托
     """
@@ -1091,7 +1091,7 @@ def test_ROE_056_057(normal_aide, init_aide):
 
 
 @pytest.mark.P3
-def test_ROE_058(normal_aide):
+def test_ROE_058(normal_aide, deploy_chain):
     """
     账户余额不足
     """
@@ -1106,7 +1106,7 @@ def test_ROE_058(normal_aide):
 
 
 @pytest.mark.P1
-def test_ROE_060(normal_aide):
+def test_ROE_060(normal_aide, deploy_chain):
     """
     质押 赎回质押 过了冻结期 再次质押和委托、赎回委托
     """

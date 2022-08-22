@@ -15,7 +15,7 @@ from tests.conftest import generate_account
 @allure.title("Query delegate parameter validation")
 @pytest.mark.P1
 @pytest.mark.compatibility
-def test_DI_001_009(normal_aide):
+def test_DI_001_009(normal_aide, deploy_chain):
     """
     001: 委托 至 备选节点候选人
         - 质押成为备选节点候选人
@@ -38,7 +38,7 @@ def test_DI_001_009(normal_aide):
 
 @allure.title("Delegate to different people")
 @pytest.mark.P1
-def test_DI_002_003_004(normal_aides):
+def test_DI_002_003_004(normal_aides, deploy_chain):
     """
     002:委托 至 备选节点候选人
     003:委托 至 备选节点
@@ -88,7 +88,6 @@ def test_DI_002_003_004(normal_aides):
 def test_DI_005(init_aide):
     """
     005: init_aide 不能被委托
-    # TODO 这里直接抛出错误了,和期望不符合,预估gas
     """
     address, prikey = generate_account(init_aide, init_aide.delegate._economic.delegate_limit * 2)
     result = init_aide.delegate.delegate(private_key=prikey)
@@ -98,7 +97,7 @@ def test_DI_005(init_aide):
 
 @allure.title("The amount entrusted by the client is less than the threshold")
 @pytest.mark.P1
-def test_DI_006(normal_aide):
+def test_DI_006(normal_aide, deploy_chain):
     """
     006: 委托金额低于最低门槛
     """
@@ -114,7 +113,7 @@ def test_DI_006(normal_aide):
 
 @allure.title("gas Insufficient entrustment")
 @pytest.mark.P1
-def test_DI_007(normal_aide):
+def test_DI_007(normal_aide, deploy_chain):
     """
     007: gas 不足委托
     """
@@ -130,7 +129,7 @@ def test_DI_007(normal_aide):
 
 
 @pytest.mark.P1
-def test_DI_008(normal_aide):
+def test_DI_008(normal_aide, deploy_chain):
     """
     008: 账户余额不足发起委托, 余额不足分两种场景
         - {'code': 301111, 'message': 'The account balance is insufficient'}  够手续费但是不够委托最低门槛
@@ -153,7 +152,7 @@ def test_DI_008(normal_aide):
 
 @allure.title("Delegate to a candidate who doesn't exist")
 @pytest.mark.P3
-def test_DI_010(normal_aide):
+def test_DI_010(normal_aide, deploy_chain):
     """
     010: 对某个不存在的候选人做委托
         - {'code': 301102, 'message': 'The candidate does not exist'}
@@ -168,7 +167,7 @@ def test_DI_010(normal_aide):
 
 @allure.title("Delegate to different people")
 @pytest.mark.P1
-def test_DI_011_012_013_014(normal_aide):
+def test_DI_011_012_013_014(normal_aide, deploy_chain):
     """
     0:A valid candidate whose commission is still in doubt
     1:The delegate is also a valid candidate at a lockup period
@@ -205,7 +204,7 @@ def test_DI_011_012_013_014(normal_aide):
 
 @allure.title("Delegate to candidates whose penalties have lapsed (freeze period and after freeze period)")
 @pytest.mark.P1
-def test_DI_015_016(normal_aide, init_aide):
+def test_DI_015_016(normal_aide, init_aide, deploy_chain):
     """
     015: 委托被惩罚失效还在冻结期的候选人
     016: 委托被惩罚失效已经过了冻结期的候选人
@@ -243,7 +242,7 @@ def test_DI_015_016(normal_aide, init_aide):
 
 @allure.title("Use the pledge account as the entrustment")
 @pytest.mark.P1
-def test_DI_017(normal_aide):
+def test_DI_017(normal_aide, deploy_chain):
     """
     017: 使用质押账户做委托
     """
@@ -257,7 +256,7 @@ def test_DI_017(normal_aide):
 
 @allure.title("Delegate to candidates whose revenue address is the incentive pool")
 @pytest.mark.P1
-def test_DI_018(normal_aide):
+def test_DI_018(normal_aide, deploy_chain):
     """
     018: 对收益地址是激励池的候选人做委托
     """
@@ -272,7 +271,7 @@ def test_DI_018(normal_aide):
 
 @allure.title("After verifying the node delegation, cancel the pledge, and pledge and delegate again")
 @pytest.mark.P1
-def test_DI_019(normal_aide):
+def test_DI_019(normal_aide, deploy_chain):
     """
     019: 验证节点委托后取消质押,并再次质押和委托
         - 再次质押计算 节点被委托的未生效总数 == normal_aide.delegate._economic.staking_limit
@@ -321,7 +320,7 @@ def test_DI_020(normal_aides):
 
 @allure.title("Punish the verifier and verify the entrusted amount")
 @pytest.mark.P3
-def test_DI_021(normal_aide, init_aide):
+def test_DI_021(normal_aide, init_aide, deploy_chain):
     """
     021: 委托的验证人被惩罚，校验委托本金
     """
@@ -352,7 +351,7 @@ def test_DI_021(normal_aide, init_aide):
 @allure.title("Free amount in different periods when additional entrustment is made")
 @pytest.mark.P2
 @pytest.mark.parametrize('status', [0, 1, 2])
-def test_DI_022_023_024(normal_aide, defer_reset_chain, status):
+def test_DI_022_023_024(normal_aide, deploy_chain, status):
     """
     022:There is only the free amount of hesitation period when additional entrusting
     023:Only the free amount of the lockup period exists when the delegate is added
@@ -400,7 +399,7 @@ def test_DI_022_023_024(normal_aide, defer_reset_chain, status):
 
 @allure.title("uncommitted")
 @pytest.mark.P2
-def test_DI_025(normal_aide):
+def test_DI_025(normal_aide, deploy_chain):
     """
     025: 没有被委托过的信息
     """
@@ -411,7 +410,7 @@ def test_DI_025(normal_aide):
 
 @allure.title("The entrusted candidate is valid")
 @pytest.mark.P2
-def test_DI_026(normal_aide):
+def test_DI_026(normal_aide, deploy_chain):
     """
     026: 被委托的候选人有效
     """
@@ -433,7 +432,7 @@ def test_DI_026(normal_aide):
 
 @allure.title("The entrusted candidate does not exist")
 @pytest.mark.P2
-def test_DI_027(normal_aide):
+def test_DI_027(normal_aide, deploy_chain):
     """
     The entrusted candidate does not exist
     """
@@ -449,7 +448,7 @@ def test_DI_027(normal_aide):
 
 @allure.title("The entrusted candidate is invalid")
 @pytest.mark.P2
-def test_DI_028(normal_aide):
+def test_DI_028(normal_aide, deploy_chain):
     """
     The entrusted candidate is invalid
     """
@@ -471,7 +470,7 @@ def test_DI_028(normal_aide):
 
 @allure.title("Delegate information in the hesitation period, lock period")
 @pytest.mark.P2
-def test_DI_029_030(normal_aide):
+def test_DI_029_030(normal_aide, deploy_chain):
     """
     029:Hesitation period inquiry entrustment details
     030:Lock periodic query information
@@ -498,7 +497,7 @@ def test_DI_029_030(normal_aide):
 
 @allure.title("The delegate message no longer exists")
 @pytest.mark.P2
-def test_DI_031(normal_aide):
+def test_DI_031(normal_aide, deploy_chain):
     """
     The delegate message no longer exists
     """
@@ -520,7 +519,7 @@ def test_DI_031(normal_aide):
 
 @allure.title("The commission information is still in the hesitation period & The delegate information is still locked")
 @pytest.mark.P2
-def test_DI_032_033(normal_aide):
+def test_DI_032_033(normal_aide, deploy_chain):
     """
     032:The commission information is still in the hesitation period
     033The delegate information is still locked
@@ -553,7 +552,7 @@ def test_DI_032_033(normal_aide):
 
 @allure.title("The entrusted candidate has withdrawn of his own accord")
 @pytest.mark.P2
-def test_DI_034(normal_aide):
+def test_DI_034(normal_aide, deploy_chain):
     """
     The entrusted candidate has withdrawn of his own accord
     """
@@ -580,7 +579,7 @@ def test_DI_034(normal_aide):
 
 @allure.title("Entrusted candidate (penalized in lockup period, penalized out completely)")
 @pytest.mark.P2
-def test_DI_035_036(normal_aide, init_aide):
+def test_DI_035_036(normal_aide, init_aide, deploy_chain):
     """
     The entrusted candidate is still penalized in the lockup period
     The entrusted candidate was penalized to withdraw completely
@@ -631,7 +630,7 @@ def test_DI_035_036(normal_aide, init_aide):
 
 @allure.title("Query for delegate information in undo")
 @pytest.mark.P2
-def test_DI_038(normal_aide):
+def test_DI_038(normal_aide, deploy_chain):
     """
     Query for delegate information in undo
     """

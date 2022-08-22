@@ -1,18 +1,13 @@
 import os.path
 import time
+from os.path import join
 from random import choice
 
 import pytest
-from client_sdk_python import Account
-from hexbytes import HexBytes
 from platon_aide import Aide
 from platon_env.chain import Chain
 
-from setting import setting
 from lib.funcs import assert_chain, get_aides
-from lib.account import MAIN_ACCOUNT
-from os.path import join
-
 from setting.setting import BASE_DIR
 
 
@@ -28,6 +23,11 @@ def chain(request):
 
     yield chain
     chain.uninstall()
+
+
+@pytest.fixture
+def deploy_chain(chain):
+    chain.install()
 
 
 @pytest.fixture
@@ -47,12 +47,11 @@ def condition_chain(chain, request):
 
 
 @pytest.fixture()
-def defer_reset_chain(chain: Chain):
+def reset_chain(chain: Chain):
     """ 返回chain对象，并且在用例运行完成后恢复环境
     """
-    yield chain
     chain.install()
-    time.sleep(5)       # 等待链出块
+    time.sleep(5)  # 等待链出块
 
 
 @pytest.fixture(scope='session')
