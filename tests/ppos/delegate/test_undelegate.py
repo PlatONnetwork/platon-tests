@@ -10,7 +10,6 @@ from loguru import logger
 
 
 @pytest.mark.P0
-@pytest.mark.compatibility
 def test_ROE_001_007_015(normal_aide, deploy_chain):
     """
     1.发起质押和委托
@@ -155,7 +154,7 @@ def test_ROE_006_008(normal_aide, deploy_chain):
     amount_after = normal_aide.platon.get_balance(delegate_address)
     logger.info("The wallet balance:{}".format(amount_after))
     delegate_amount = value * 2
-    assert delegate_amount * 2 - (amount_after - amount) < normal_aide.web3.toVon(1, 'lat')
+    assert delegate_amount - (amount_after - amount) < normal_aide.web3.toVon(1, 'lat')
 
 
 @pytest.mark.P1
@@ -644,10 +643,8 @@ def test_ROE_033_034(normal_aide, deploy_chain):
 
     wit_del_amt = withdrew_delegate_wallet_balance(normal_aide, sd_gather.StakingBlockNum,
                                                    sd_gather.delegate_addr, sd_gather.delegate_pk)
-    wait_settlement(normal_aide)
-    red_del_amt = redeem_delegate_wallet_balance(normal_aide, sd_gather.delegate_addr, sd_gather.delegate_pk)
     delegate_limit = normal_aide.delegate._economic.delegate_limit
-    assert delegate_limit - (red_del_amt - wit_del_amt) < normal_aide.web3.toVon(1, "lat")
+    assert delegate_limit - (wit_del_amt - balance1) < normal_aide.web3.toVon(1, "lat")
 
 
 @pytest.mark.P2

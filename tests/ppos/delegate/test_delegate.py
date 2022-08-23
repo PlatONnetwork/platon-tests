@@ -14,7 +14,6 @@ from tests.conftest import generate_account
 
 @allure.title("Query delegate parameter validation")
 @pytest.mark.P1
-@pytest.mark.compatibility
 def test_DI_001_009(normal_aide, deploy_chain):
     """
     001: 委托 至 备选节点候选人
@@ -510,7 +509,7 @@ def test_DI_031(normal_aide, deploy_chain):
 
     msg = normal_aide.staking.staking_info
 
-    assert normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey) == 0
+    assert normal_aide.delegate.withdrew_delegate(private_key=delegate_prikey)['code'] == 0
 
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
@@ -589,14 +588,11 @@ def test_DI_035_036(normal_aide, init_aide, deploy_chain):
     normal_aide.staking.create_staking(amount=value, benefit_address=address, private_key=prikey)
 
     delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 3)
-    delegate_result = normal_aide.delegate.delegate(private_key=delegate_prikey)
-    logger.info(delegate_result)
-    assert delegate_result['code'] == 0
-
+    assert normal_aide.delegate.delegate(private_key=delegate_prikey)['code'] == 0
     msg = normal_aide.staking.staking_info
 
     # The validation node becomes the out-block validation node
-    wait_consensus(init_aide, 4)
+    wait_consensus(init_aide, 5)
     validator_list = get_pledge_list(init_aide.staking.get_validator_list)
     assert normal_aide.node.node_id in validator_list
     candidate_info = init_aide.staking.get_candidate_info(node_id=normal_aide.node.node_id)
