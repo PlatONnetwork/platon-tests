@@ -28,6 +28,9 @@ def chain(request):
 @pytest.fixture
 def deploy_chain(chain):
     chain.install()
+    from loguru import logger
+    logger.info(f"func_chain")
+    time.sleep(5)
 
 
 @pytest.fixture
