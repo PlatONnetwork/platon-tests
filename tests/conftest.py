@@ -1,14 +1,17 @@
 import os.path
 import time
+from collections import namedtuple
 from os.path import join
 from random import choice
 
 import pytest
+from loguru import logger
 from platon_aide import Aide
 from platon_env.chain import Chain
+from platon_env.genesis import Genesis
 
-from lib.funcs import assert_chain, get_aides
-from setting.setting import BASE_DIR
+from lib.funcs import assert_chain, get_aides, wait_settlement
+from setting.setting import BASE_DIR, GENESIS_FILE
 
 
 @pytest.fixture(scope='session')
@@ -22,14 +25,13 @@ def chain(request):
     time.sleep(3)
 
     yield chain
-    chain.uninstall()
+    # chain.uninstall()
 
 
 @pytest.fixture
 def deploy_chain(chain):
     chain.install()
-    from loguru import logger
-    logger.info(f"func_chain")
+    logger.info(f"deploy_chain")
     time.sleep(5)
 
 
@@ -61,7 +63,9 @@ def reset_chain(chain: Chain):
 def aides(chain: Chain):
     """ 返回链上所有节点的aide对象列表
     """
-    return get_aides(chain, 'all')
+    aides = get_aides(chain, 'all')
+    set_var_info(aides)
+    return aides
 
 
 @pytest.fixture
@@ -75,7 +79,9 @@ def aide(aides) -> Aide:
 def init_aides(chain: Chain):
     """ 返回链上创世节点的aide对象列表
     """
-    return get_aides(chain, 'init')
+    init_aides = get_aides(chain, 'init')
+    set_var_info(init_aides)
+    return init_aides
 
 
 @pytest.fixture
@@ -91,6 +97,7 @@ def normal_aides(chain: Chain):
     """ 返回链上普通节点的aide对象列表
     """
     normal_aides = get_aides(chain, 'normal')
+    set_var_info(normal_aides)
     return normal_aides
 
 
@@ -152,6 +159,7 @@ def generate_account(aide, balance=0):
         aide.transfer.transfer(address, balance)
     return address, prikey
 
+
 # def get_datahash(aide, txn, privatekey=Master_prikey):
 #     if not txn.get('nonce'):
 #         account = aide.web3.platon.account.from_key(privatekey, hrp=aide.web3.hrp)
@@ -161,3 +169,68 @@ def generate_account(aide, balance=0):
 #     signed_txn = aide.web3.platon.account.sign_transaction(txn, privatekey, hrp=aide.web3.hrp)
 #     data_hash = HexBytes(signed_txn.rawTransaction).hex()
 #     return data_hash
+
+def set_var_info(aides):
+    """获取/设置 常用变量数据"""
+    for aide in aides:
+        staking_limit = aide.delegate._economic.staking_limit
+        delegate_limit = aide.delegate._economic.delegate_limit
+
+        delegate_amount = delegate_limit * 100
+
+        init_sta_account_amt = staking_limit * 10
+        init_del_account_amt = staking_limit * 10
+
+        setattr(aide, "staking_limit", staking_limit)
+        setattr(aide, "delegate_limit", delegate_limit)
+        setattr(aide, "delegate_amount", delegate_amount)
+        setattr(aide, "init_sta_account_amt", init_sta_account_amt)
+        setattr(aide, "init_del_account_amt", init_del_account_amt)
+
+
+def create_sta_del_account(aide, sta_amt, del_amt):
+    sta_addr, sta_pk = generate_account(aide, sta_amt)
+    del_addr, del_pk = generate_account(aide, del_amt)
+    return sta_addr, sta_pk, del_addr, del_pk
+
+
+def create_sta_del(aide, del_balance_type: int):
+    sta_addr, sta_pk, del_addr, del_pk = create_sta_del_account(aide, aide.init_sta_account_amt,
+                                                                aide.init_del_account_amt)
+    assert aide.staking.create_staking(amount=aide.staking_limit, benefit_address=sta_addr,
+                                       private_key=sta_pk)['code'] == 0
+    StakingBlockNum = aide.staking.staking_info.StakingBlockNum
+    assert aide.delegate.delegate(amount=aide.delegate_amount, balance_type=del_balance_type,
+                                  private_key=del_pk)['code'] == 0
+    StaDel = namedtuple("StaDel", ['StakingBlockNum', 'sta_addr', 'sta_pk', 'del_addr', 'del_pk'])
+
+    return StaDel._make([StakingBlockNum, sta_addr, sta_pk, del_addr, del_pk])
+
+
+@pytest.fixture()
+def create_lock_amt(update_undelegate_freeze_duration, normal_aides):
+    chain, new_gen_file = update_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+    normal_aide0_namedtuple = create_sta_del(normal_aide0, 0)
+    normal_aide1_namedtuple = create_sta_del(normal_aide1, 0)
+
+    wait_settlement(normal_aide0)
+
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=normal_aide0.delegate_amount, )['code'] == 0
+
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+
+
+@pytest.fixture(scope='module')
+def update_undelegate_freeze_duration(chain: Chain):
+    genesis = Genesis(GENESIS_FILE)
+    genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 2
+    new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
+    genesis.save_as(new_gen_file)
+
+    yield chain, new_gen_file
