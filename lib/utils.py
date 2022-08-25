@@ -2,7 +2,6 @@ import time
 
 import rlp
 from loguru import logger
-from platon_aide.economic import Economic, new_economic
 from platon_aide.utils import ec_recover
 
 
@@ -74,3 +73,18 @@ def get_block_count_number(aide, node_id=None, current_block=None, roundnum=1):
         else:
             break
     return count
+
+
+def hex_to_int(data):
+    return int(data, 16)
+
+
+def parse_lock_info(data):
+    data = dict(data)
+    data['Released'] = hex_to_int(data['Released'])
+    data['RestrictingPlan'] = hex_to_int(data['RestrictingPlan'])
+    if data['Locks']:
+        for item in data['Locks']:
+            item['Released'] = hex_to_int(item['Released'])
+            item['RestrictingPlan'] = hex_to_int(item['RestrictingPlan'])
+    return data
