@@ -195,23 +195,24 @@ def create_sta_del_account(aide, sta_amt, del_amt):
     return sta_addr, sta_pk, del_addr, del_pk
 
 
-def create_sta_del(aide, restr_plan=None):
+def create_sta_del(aide, restr_plan=None, mix=False):
     sta_addr, sta_pk, del_addr, del_pk = create_sta_del_account(aide, BaseData.init_sta_account_amt,
                                                                 BaseData.init_del_account_amt)
     assert aide.staking.create_staking(amount=BaseData.staking_limit, benefit_address=sta_addr,
                                        private_key=sta_pk)['code'] == 0
     StakingBlockNum = aide.staking.staking_info.StakingBlockNum
     if not restr_plan:
-        del_balance_type = 0
-        assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=del_balance_type,
+        assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
                                       private_key=del_pk)['code'] == 0
     else:
-        del_balance_type = 1
         assert aide.restricting.restricting(release_address=del_addr, plans=restr_plan,
                                             private_key=del_pk)['code'] == 0
         restr_info = aide.restricting.get_restricting_info(del_addr)
-        logger.info(f'restr_info: {restr_info}')
-        assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=del_balance_type,
+        logger.info(f'setup -> restr_info: {restr_info}')
+        assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                      private_key=del_pk)['code'] == 0
+    if mix:
+        assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
                                       private_key=del_pk)['code'] == 0
 
     StaDel = namedtuple("StaDel", ['StakingBlockNum', 'sta_addr', 'sta_pk', 'del_addr', 'del_pk'])
@@ -260,6 +261,68 @@ def create_lock_restr_amt(update_undelegate_freeze_duration, normal_aides):
     plan = [{'Epoch': 10, 'Amount': lockup_amount}]
 
     normal_aide0_namedtuple = create_sta_del(normal_aide0, plan)
+    normal_aide1_namedtuple = create_sta_del(normal_aide1, )
+
+    wait_settlement(normal_aide0)
+
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=BaseData.delegate_amount, )['code'] == 0
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+
+
+@pytest.fixture()
+def create_lock_mix_amt_free_unlock_long(update_undelegate_freeze_duration, normal_aides):
+    """
+    创建锁定期 混合金额 自由金额解锁周期更长
+    # 先创建锁仓金额的委托
+    # wait 160 ==> 锁仓金额 进入生效期
+    # 赎回委托锁仓金额 进入 锁定期 2
+    # 发起自由金额委托
+    # wait 160 ==> 锁仓金额锁定剩下 1， 自由金额生效
+    # 赎回自由金额委托 自由金额 锁定期 2
+    # setup ==>  锁仓金额 剩1个周期解锁 自由金额 剩2个周期解锁
+    """
+    chain, new_gen_file = update_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+
+    normal_aide0_namedtuple = create_sta_del(normal_aide0, plan)
+    normal_aide1_namedtuple = create_sta_del(normal_aide1, )
+
+    wait_settlement(normal_aide0)
+    logger.info(f'{"赎回锁仓金额":*^50s}')
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=BaseData.delegate_amount, )['code'] == 0
+    logger.info(f'{"发起自由金额委托":*^50s}')
+    assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
+                                          private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
+    wait_settlement(normal_aide0)
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=BaseData.delegate_amount, )['code'] == 0
+
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+
+
+@pytest.fixture()
+def create_lock_mix_amt_free_(update_undelegate_freeze_duration, normal_aides):
+    chain, new_gen_file = update_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+
+    normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
     normal_aide1_namedtuple = create_sta_del(normal_aide1, )
 
     wait_settlement(normal_aide0)
