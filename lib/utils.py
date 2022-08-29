@@ -88,3 +88,21 @@ def parse_lock_info(data):
             item['Released'] = hex_to_int(item['Released'])
             item['RestrictingPlan'] = hex_to_int(item['RestrictingPlan'])
     return data
+
+
+def p_get_delegate_lock_info(aide, aide_nt):
+    lock_info = aide.delegate.get_delegate_lock_info(address=aide_nt.del_addr)
+    logger.info(f"lock_info: {lock_info}")
+    return lock_info
+
+
+def p_get_restricting_info(aide, aide_nt):
+    restr_info = aide.restricting.get_restricting_info(aide_nt.del_addr)
+    logger.info(f'restr_info: {restr_info}')
+    return restr_info
+
+
+def p_get_delegate_info(aide, del_addr, node_id, sta_block_num):
+    del_info = aide.delegate.get_delegate_info(del_addr, node_id, sta_block_num)
+    logger.info(f"delegate_info: {del_info}")
+    return del_info

@@ -24,8 +24,8 @@ class BaseData(object):
     def set_var_info(self):
         """获取/设置 常用变量数据"""
         aide = self.aides[0]
-        BaseData.staking_limit = aide.delegate._economic.staking_limit
-        BaseData.delegate_limit = aide.delegate._economic.delegate_limit
+        BaseData.staking_limit = aide.economic.staking_limit
+        BaseData.delegate_limit = aide.economic.delegate_limit
 
         BaseData.delegate_amount = BaseData.delegate_limit * 100
 

@@ -300,10 +300,45 @@ def create_lock_mix_amt_free_unlock_long(update_undelegate_freeze_duration, norm
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount, )['code'] == 0
-    logger.info(f'{"发起自由金额委托":*^50s}')
+    logger.info(f'{"自由金额委托":*^50s}')
     assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
                                           private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
     wait_settlement(normal_aide0)
+    logger.info(f'{"赎回自由金额":*^50s}')
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=BaseData.delegate_amount, )['code'] == 0
+
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+
+
+@pytest.fixture()
+def create_lock_mix_amt_restr_unlock_long(create_lock_free_amt):
+    """
+    创建锁定期 混合金额 锁仓金额解锁周期更长
+    # 先创建自由金额的委托
+    # wait 160 ==> 自由金额 进入生效期
+    # 赎回委托自由金额 进入 锁定期 2
+    ======》fixture.create_lock_free_amt
+    # 发起锁仓金额委托
+    # wait 160 ==> 自由金额锁定剩下 1， 锁仓金额生效
+    # 赎回锁仓金额委托 锁仓金额 锁定期 2
+    # setup ==>  自由金额 剩1个周期解锁 锁仓金额 剩2个周期解锁
+    """
+    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple = create_lock_free_amt
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+    logger.info(f'{"锁仓金额委托":*^50s}')
+    assert normal_aide0.restricting.restricting(release_address=normal_aide0_namedtuple.del_addr, plans=plan,
+                                                private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
+    restr_info = normal_aide0.restricting.get_restricting_info(normal_aide0_namedtuple.del_addr)
+    logger.info(f'setup -> restr_info: {restr_info}')
+    assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                          private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
+
+    wait_settlement(normal_aide0)
+    logger.info(f'{"赎回锁仓金额":*^50s}')
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount, )['code'] == 0
