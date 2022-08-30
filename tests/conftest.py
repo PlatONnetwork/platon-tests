@@ -196,6 +196,16 @@ def create_sta_del_account(aide, sta_amt, del_amt):
 
 
 def create_sta_del(aide, restr_plan=None, mix=False):
+    """
+
+    @param aide:
+    @param restr_plan: 标识锁仓计划
+    @param mix: 标识混合金额场景
+    @Desc:
+        - 传aide 即创建自由金额委托
+        - 传aide + restr_plan  即创建锁仓金额委托
+        - 传aide + restr_plan  先创建锁仓 在创建自由金额委托
+    """
     sta_addr, sta_pk, del_addr, del_pk = create_sta_del_account(aide, BaseData.init_sta_account_amt,
                                                                 BaseData.init_del_account_amt)
     assert aide.staking.create_staking(amount=BaseData.staking_limit, benefit_address=sta_addr,
@@ -231,7 +241,8 @@ def update_undelegate_freeze_duration(chain: Chain):
 
 
 @pytest.fixture()
-def create_lock_free_amt(update_undelegate_freeze_duration, normal_aides):
+def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aides):
+    req_param = request.param
     chain, new_gen_file = update_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
@@ -242,9 +253,13 @@ def create_lock_free_amt(update_undelegate_freeze_duration, normal_aides):
 
     wait_settlement(normal_aide0)
 
-    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
-                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
-                                                   amount=BaseData.delegate_amount, )['code'] == 0
+    assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount, normal_aide0_namedtuple.StakingBlockNum,
+                                                   private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
+    if req_param.get("ManyAcc"):
+        assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount,
+                                                       normal_aide1_namedtuple.StakingBlockNum,
+                                                       normal_aide1.node.node_id,
+                                                       private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
 
     yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
 
@@ -347,7 +362,11 @@ def create_lock_mix_amt_restr_unlock_long(create_lock_free_amt):
 
 
 @pytest.fixture()
-def create_lock_mix_amt_free_(update_undelegate_freeze_duration, normal_aides):
+def create_lock_mix_amt_unlock_eq(update_undelegate_freeze_duration, normal_aides):
+    """
+    创建锁定期 混合金额 锁仓金额和自由金额解锁周期相等
+    # 赎回委托金额: BaseData.delegate_amount * 2
+    """
     chain, new_gen_file = update_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
@@ -364,5 +383,5 @@ def create_lock_mix_amt_free_(update_undelegate_freeze_duration, normal_aides):
 
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
-                                                   amount=BaseData.delegate_amount, )['code'] == 0
+                                                   amount=BaseData.delegate_amount * 2, )['code'] == 0
     yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
