@@ -197,7 +197,7 @@ def create_sta_del_account(aide, sta_amt, del_amt):
 
 def create_sta_del(aide, restr_plan=None, mix=False):
     """
-
+    创建质押和委托
     @param aide:
     @param restr_plan: 标识锁仓计划
     @param mix: 标识混合金额场景
@@ -206,6 +206,7 @@ def create_sta_del(aide, restr_plan=None, mix=False):
         - 传aide + restr_plan  即创建锁仓金额委托
         - 传aide + restr_plan  先创建锁仓 在创建自由金额委托
     """
+    # create_sta_del_account 调用一次会新建账户
     sta_addr, sta_pk, del_addr, del_pk = create_sta_del_account(aide, BaseData.init_sta_account_amt,
                                                                 BaseData.init_del_account_amt)
     assert aide.staking.create_staking(amount=BaseData.staking_limit, benefit_address=sta_addr,
@@ -242,6 +243,17 @@ def update_undelegate_freeze_duration(chain: Chain):
 
 @pytest.fixture()
 def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aides):
+    """
+    创建锁定期 只有自由金额
+    @param update_undelegate_freeze_duration: 修改创世文件赎回委托锁定周期参数
+    @param normal_aides:
+    @param request: param 根据使用fixture传入参数来判断一对多 or 多对多场景
+    @Desc:
+        - req_param: False
+            - 只针对A节点赎回(A节点锁定期有钱)
+        - req_param: True
+            - A、B节点都赎回(A、B节点锁定期有钱)
+    """
     req_param = request.param
     chain, new_gen_file = update_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
@@ -265,7 +277,19 @@ def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aide
 
 
 @pytest.fixture()
-def create_lock_restr_amt(update_undelegate_freeze_duration, normal_aides):
+def create_lock_restr_amt(request, update_undelegate_freeze_duration, normal_aides):
+    """
+    创建锁定期 只有锁仓金额
+    @param update_undelegate_freeze_duration: 修改创世文件赎回委托锁定周期参数
+    @param normal_aides:
+    @param request: param 根据使用fixture传入参数来判断一对多 or 多对多场景
+    @Desc:
+        - req_param: False
+            - 只赎回A节点锁仓金额
+        - req_param: True
+            - A、B节点都赎回锁仓金额
+    """
+    req_param = request.param
     chain, new_gen_file = update_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
@@ -276,45 +300,41 @@ def create_lock_restr_amt(update_undelegate_freeze_duration, normal_aides):
     plan = [{'Epoch': 10, 'Amount': lockup_amount}]
 
     normal_aide0_namedtuple = create_sta_del(normal_aide0, plan)
-    normal_aide1_namedtuple = create_sta_del(normal_aide1, )
+
+    if req_param.get("ManyAcc"):
+        normal_aide1_namedtuple = create_sta_del(normal_aide1, plan)
+    else:
+        normal_aide1_namedtuple = create_sta_del(normal_aide1, )
 
     wait_settlement(normal_aide0)
 
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount, )['code'] == 0
+    if req_param.get("ManyAcc"):
+        assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount,
+                                                       normal_aide1_namedtuple.StakingBlockNum,
+                                                       normal_aide1.node.node_id,
+                                                       private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
+
     yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
 
 
 @pytest.fixture()
-def create_lock_mix_amt_free_unlock_long(update_undelegate_freeze_duration, normal_aides):
+def create_lock_mix_amt_free_unlock_long(create_lock_restr_amt):
     """
     创建锁定期 混合金额 自由金额解锁周期更长
     # 先创建锁仓金额的委托
     # wait 160 ==> 锁仓金额 进入生效期
     # 赎回委托锁仓金额 进入 锁定期 2
+    ======》fixture.create_lock_restr_amt
     # 发起自由金额委托
     # wait 160 ==> 锁仓金额锁定剩下 1， 自由金额生效
     # 赎回自由金额委托 自由金额 锁定期 2
     # setup ==>  锁仓金额 剩1个周期解锁 自由金额 剩2个周期解锁
     """
-    chain, new_gen_file = update_undelegate_freeze_duration
-    chain.install(genesis_file=new_gen_file)
-    time.sleep(5)
+    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple = create_lock_restr_amt
 
-    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
-
-    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
-    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
-
-    normal_aide0_namedtuple = create_sta_del(normal_aide0, plan)
-    normal_aide1_namedtuple = create_sta_del(normal_aide1, )
-
-    wait_settlement(normal_aide0)
-    logger.info(f'{"赎回锁仓金额":*^50s}')
-    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
-                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
-                                                   amount=BaseData.delegate_amount, )['code'] == 0
     logger.info(f'{"自由金额委托":*^50s}')
     assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
                                           private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
