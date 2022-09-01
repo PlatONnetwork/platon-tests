@@ -103,7 +103,7 @@ def normal_aides(chain: Chain):
 
 
 @pytest.fixture
-def normal_aide(normal_aides):
+def normal_aide(normal_aides) -> Aide:
     """ 返回一个普通节点的aide对象
     """
     normal_aide = choice(normal_aides)
@@ -240,6 +240,17 @@ def update_undelegate_freeze_duration(chain: Chain):
     yield chain, new_gen_file
 
 
+@pytest.fixture(scope='module')
+def update_undelegate_freeze_duration_three(chain: Chain):
+    genesis = Genesis(GENESIS_FILE)
+    genesis.data['economicModel']['staking']['unStakeFreezeDuration'] = 3
+    genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 3
+    new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
+    genesis.save_as(new_gen_file)
+
+    yield chain, new_gen_file
+
+
 @pytest.fixture()
 def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aides):
     req_param = request.param
@@ -255,6 +266,7 @@ def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aide
 
     assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount, normal_aide0_namedtuple.StakingBlockNum,
                                                    private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
+
     if req_param.get("ManyAcc"):
         assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount,
                                                        normal_aide1_namedtuple.StakingBlockNum,
