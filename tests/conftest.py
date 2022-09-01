@@ -213,9 +213,11 @@ def create_sta_del(aide, restr_plan=None, mix=False):
                                        private_key=sta_pk)['code'] == 0
     StakingBlockNum = aide.staking.staking_info.StakingBlockNum
     if not restr_plan:
+        logger.info(f'{f"{aide.node}: 自由金额委托":*^50s}')
         assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
                                       private_key=del_pk)['code'] == 0
     else:
+        logger.info(f'{f"{aide.node}: 锁仓金额委托":*^50s}')
         assert aide.restricting.restricting(release_address=del_addr, plans=restr_plan,
                                             private_key=del_pk)['code'] == 0
         restr_info = aide.restricting.get_restricting_info(del_addr)
@@ -223,12 +225,13 @@ def create_sta_del(aide, restr_plan=None, mix=False):
         assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
                                       private_key=del_pk)['code'] == 0
     if mix:
+        logger.info(f'{f"{aide.node}: 自由金额委托":*^50s}')
         assert aide.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
                                       private_key=del_pk)['code'] == 0
 
-    StaDel = namedtuple("StaDel", ['StakingBlockNum', 'sta_addr', 'sta_pk', 'del_addr', 'del_pk'])
+    StaDel = namedtuple("StaDel", ['StakingBlockNum', 'sta_addr', 'sta_pk', 'del_addr', 'del_pk', 'node_id'])
 
-    return StaDel._make([StakingBlockNum, sta_addr, sta_pk, del_addr, del_pk])
+    return StaDel._make([StakingBlockNum, sta_addr, sta_pk, del_addr, del_pk, aide.node.node_id])
 
 
 @pytest.fixture(scope='module')
@@ -260,9 +263,9 @@ def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aide
     @param normal_aides:
     @param request: param 根据使用fixture传入参数来判断一对多 or 多对多场景
     @Desc:
-        - req_param: False
+        - req_param ManyAcc: False
             - 只针对A节点赎回(A节点锁定期有钱)
-        - req_param: True
+        - req_param ManyAcc: True
             - A、B节点都赎回(A、B节点锁定期有钱)
     """
     req_param = request.param
@@ -275,17 +278,18 @@ def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aide
     normal_aide1_namedtuple = create_sta_del(normal_aide1)
 
     wait_settlement(normal_aide0)
-
+    logger.info(f'{f"{normal_aide0.node}: 赎回自由金额委托":*^50s}')
     assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount, normal_aide0_namedtuple.StakingBlockNum,
                                                    private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
 
     if req_param.get("ManyAcc"):
+        logger.info(f'{f"{normal_aide1.node}: 赎回自由金额委托":*^50s}')
         assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount,
                                                        normal_aide1_namedtuple.StakingBlockNum,
                                                        normal_aide1.node.node_id,
                                                        private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
 
-    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple, req_param
 
 
 @pytest.fixture()
@@ -296,9 +300,9 @@ def create_lock_restr_amt(request, update_undelegate_freeze_duration, normal_aid
     @param normal_aides:
     @param request: param 根据使用fixture传入参数来判断一对多 or 多对多场景
     @Desc:
-        - req_param: False
+        - req_param ManyAcc: False
             - 只赎回A节点锁仓金额
-        - req_param: True
+        - req_param ManyAcc: True
             - A、B节点都赎回锁仓金额
     """
     req_param = request.param
@@ -319,17 +323,18 @@ def create_lock_restr_amt(request, update_undelegate_freeze_duration, normal_aid
         normal_aide1_namedtuple = create_sta_del(normal_aide1, )
 
     wait_settlement(normal_aide0)
-
+    logger.info(f'{f"{normal_aide0.node}: 赎回锁仓金额委托":*^50s}')
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount, )['code'] == 0
     if req_param.get("ManyAcc"):
+        logger.info(f'{f"{normal_aide1.node}: 赎回锁仓金额委托":*^50s}')
         assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount,
                                                        normal_aide1_namedtuple.StakingBlockNum,
                                                        normal_aide1.node.node_id,
                                                        private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
 
-    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple, req_param
 
 
 @pytest.fixture()
@@ -345,17 +350,30 @@ def create_lock_mix_amt_free_unlock_long(create_lock_restr_amt):
     # 赎回自由金额委托 自由金额 锁定期 2
     # setup ==>  锁仓金额 剩1个周期解锁 自由金额 剩2个周期解锁
     """
-    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple = create_lock_restr_amt
+    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple, req_param = create_lock_restr_amt
 
-    logger.info(f'{"自由金额委托":*^50s}')
+    logger.info(f'{f"{normal_aide0.node}: 自由金额委托":*^50s}')
     assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
                                           private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
+    if req_param.get("MixAcc"):
+        # 在多对多场景下,灵活创建多种账户金额数据 基于ManyAcc=True
+        # MixAcc: False 表示节点A 拥有冻结期混合金额 自由金额解锁周期更长/节点B 拥有冻结期锁仓金额,不拥有自由金额
+        # MixAcc: True  表示节点A/B 都拥有冻结期混合金额 自由金额解锁周期更长
+        logger.info(f'{f"{normal_aide1.node}: 自由金额委托":*^50s}')
+        assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 0, normal_aide1.node.node_id,
+                                              private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
+
     wait_settlement(normal_aide0)
-    logger.info(f'{"赎回自由金额":*^50s}')
+    logger.info(f'{f"{normal_aide0.node}: 赎回自由金额":*^50s}')
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount, )['code'] == 0
-
+    if req_param.get("MixAcc"):
+        logger.info(f'{f"{normal_aide1.node}: 赎回自由金额":*^50s}')
+        assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount,
+                                                       normal_aide1_namedtuple.StakingBlockNum,
+                                                       normal_aide1.node.node_id,
+                                                       private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
     yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
 
 
@@ -372,33 +390,53 @@ def create_lock_mix_amt_restr_unlock_long(create_lock_free_amt):
     # 赎回锁仓金额委托 锁仓金额 锁定期 2
     # setup ==>  自由金额 剩1个周期解锁 锁仓金额 剩2个周期解锁
     """
-    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple = create_lock_free_amt
+    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple, req_param = create_lock_free_amt
 
     lockup_amount = BaseData.delegate_amount  # platon/10 * 100
     plan = [{'Epoch': 10, 'Amount': lockup_amount}]
-    logger.info(f'{"锁仓金额委托":*^50s}')
+    logger.info(f'{f"{normal_aide0.node}: 锁仓金额委托":*^50s}')
     assert normal_aide0.restricting.restricting(release_address=normal_aide0_namedtuple.del_addr, plans=plan,
                                                 private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
     restr_info = normal_aide0.restricting.get_restricting_info(normal_aide0_namedtuple.del_addr)
-    logger.info(f'setup -> restr_info: {restr_info}')
+    logger.info(f'{normal_aide0.node} 锁仓计划信息: {restr_info}')
     assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
                                           private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
 
+    if req_param.get("MixAcc"):
+        # 在多对多场景下,灵活创建多种账户金额数据 基于ManyAcc=True
+        # MixAcc: False 表示节点A 拥有冻结期混合金额 锁仓金额解锁周期更长/节点B 拥有冻结期自由金额,不拥有锁仓金额
+        # MixAcc: True  表示节点A/B 都拥有冻结期混合金额 锁仓金额解锁周期更长
+        logger.info(f'{f"{normal_aide1.node}: 锁仓金额委托":*^50s}')
+        assert normal_aide0.restricting.restricting(release_address=normal_aide1_namedtuple.del_addr, plans=plan,
+                                                    private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
+        restr_info = normal_aide0.restricting.get_restricting_info(normal_aide1_namedtuple.del_addr)
+        logger.info(f'{normal_aide0.node} 锁仓计划信息: {restr_info}')
+        assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 1, normal_aide1.node.node_id,
+                                              private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
+
     wait_settlement(normal_aide0)
-    logger.info(f'{"赎回锁仓金额":*^50s}')
+    logger.info(f'{f"{normal_aide0.node}: 赎回锁仓金额":*^50s}')
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount, )['code'] == 0
+
+    if req_param.get("MixAcc"):
+        logger.info(f'{f"{normal_aide1.node}: 赎回锁仓金额":*^50s}')
+        assert normal_aide0.delegate.withdrew_delegate(BaseData.delegate_amount,
+                                                       normal_aide1_namedtuple.StakingBlockNum,
+                                                       normal_aide1.node.node_id,
+                                                       private_key=normal_aide1_namedtuple.del_pk)['code'] == 0
 
     yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
 
 
 @pytest.fixture()
-def create_lock_mix_amt_unlock_eq(update_undelegate_freeze_duration, normal_aides):
+def create_lock_mix_amt_unlock_eq(request, update_undelegate_freeze_duration, normal_aides):
     """
     创建锁定期 混合金额 锁仓金额和自由金额解锁周期相等
     # 赎回委托金额: BaseData.delegate_amount * 2
     """
+    req_param = request.param
     chain, new_gen_file = update_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
@@ -409,11 +447,19 @@ def create_lock_mix_amt_unlock_eq(update_undelegate_freeze_duration, normal_aide
     plan = [{'Epoch': 10, 'Amount': lockup_amount}]
 
     normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
-    normal_aide1_namedtuple = create_sta_del(normal_aide1, )
+    if req_param.get("ManyAcc"):
+        normal_aide1_namedtuple = create_sta_del(normal_aide1, plan, mix=True)
+    else:
+        normal_aide1_namedtuple = create_sta_del(normal_aide1, )
 
     wait_settlement(normal_aide0)
 
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount * 2, )['code'] == 0
+    if req_param.get("ManyAcc"):
+        assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide1_namedtuple.del_pk,
+                                                       staking_block_identifier=normal_aide1_namedtuple.StakingBlockNum,
+                                                       amount=BaseData.delegate_amount * 2, )['code'] == 0
+
     yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
