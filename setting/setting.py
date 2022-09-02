@@ -1,4 +1,7 @@
 import os
+import sys
+from datetime import datetime
+from loguru import logger
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -22,3 +25,9 @@ PIP_BIN_DIR = os.path.join(BASE_DIR, 'env-files/pip-bin')
 
 # keystore
 KEYSTORE = os.path.join(BASE_DIR, 'env-files/keystore')
+
+# 日志设置
+# logger.remove()
+# logger.add(sys.stderr, level="INFO")
+log_file = datetime.strftime(datetime.now(), 'log/log-%m%d%H%M%S.log')
+logger.add(log_file, level="DEBUG")

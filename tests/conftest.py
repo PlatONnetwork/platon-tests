@@ -21,6 +21,9 @@ def chain(request):
     """
     chain_file = request.config.getoption("--chainFile")
     chain = Chain.from_file(join(BASE_DIR, chain_file))
+    # 先清理supervisor，再进行安装
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install()
     # todo：优化等待链出块的方式
     time.sleep(3)
