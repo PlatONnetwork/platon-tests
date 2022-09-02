@@ -171,23 +171,6 @@ def generate_account(aide, balance=0):
 #     data_hash = HexBytes(signed_txn.rawTransaction).hex()
 #     return data_hash
 
-# def set_var_info(aides):
-#     """获取/设置 常用变量数据"""
-#     for aide in aides:
-#         staking_limit = aide.delegate._economic.staking_limit
-#         delegate_limit = aide.delegate._economic.delegate_limit
-#
-#         delegate_amount = delegate_limit * 100
-#
-#         init_sta_account_amt = staking_limit * 10
-#         init_del_account_amt = staking_limit * 10
-#
-#         setattr(aide, "staking_limit", staking_limit)
-#         setattr(aide, "delegate_limit", delegate_limit)
-#         setattr(aide, "delegate_amount", delegate_amount)
-#         setattr(aide, "init_sta_account_amt", init_sta_account_amt)
-#         setattr(aide, "init_del_account_amt", init_del_account_amt)
-
 
 def create_sta_del_account(aide, sta_amt, del_amt):
     sta_addr, sta_pk = generate_account(aide, sta_amt)
@@ -209,7 +192,7 @@ def create_sta_del(aide, restr_plan=None, mix=False):
     # create_sta_del_account 调用一次会新建账户
     sta_addr, sta_pk, del_addr, del_pk = create_sta_del_account(aide, BaseData.init_sta_account_amt,
                                                                 BaseData.init_del_account_amt)
-    assert aide.staking.create_staking(amount=BaseData.staking_limit, benefit_address=sta_addr,
+    assert aide.staking.create_staking(amount=BaseData.staking_limit * 4, benefit_address=sta_addr,
                                        private_key=sta_pk)['code'] == 0
     StakingBlockNum = aide.staking.staking_info.StakingBlockNum
     if not restr_plan:
@@ -255,11 +238,29 @@ def update_undelegate_freeze_duration_three(chain: Chain):
     yield chain, new_gen_file
 
 
+@pytest.fixture(scope='module')
+def choose_undelegate_freeze_duration(request, chain):
+    req_param = request.param
+    duration = req_param.get("duration")
+
+    genesis = Genesis(GENESIS_FILE)
+    new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
+    if duration > 2:
+        genesis.data['economicModel']['staking']['unStakeFreezeDuration'] = duration
+        genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = duration
+    elif duration == 2:
+        genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 2
+    else:
+        genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 1
+    genesis.save_as(new_gen_file)
+    yield chain, new_gen_file
+
+
 @pytest.fixture()
-def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aides):
+def create_lock_free_amt(request, choose_undelegate_freeze_duration, normal_aides):
     """
     创建锁定期 只有自由金额
-    @param update_undelegate_freeze_duration: 修改创世文件赎回委托锁定周期参数
+    @param choose_undelegate_freeze_duration: 修改创世文件赎回委托锁定周期参数
     @param normal_aides:
     @param request: param 根据使用fixture传入参数来判断一对多 or 多对多场景
     @Desc:
@@ -269,7 +270,7 @@ def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aide
             - A、B节点都赎回(A、B节点锁定期有钱)
     """
     req_param = request.param
-    chain, new_gen_file = update_undelegate_freeze_duration
+    chain, new_gen_file = choose_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -293,10 +294,10 @@ def create_lock_free_amt(request, update_undelegate_freeze_duration, normal_aide
 
 
 @pytest.fixture()
-def create_lock_restr_amt(request, update_undelegate_freeze_duration, normal_aides):
+def create_lock_restr_amt(request, choose_undelegate_freeze_duration, normal_aides):
     """
     创建锁定期 只有锁仓金额
-    @param update_undelegate_freeze_duration: 修改创世文件赎回委托锁定周期参数
+    @param choose_undelegate_freeze_duration: 修改创世文件赎回委托锁定周期参数
     @param normal_aides:
     @param request: param 根据使用fixture传入参数来判断一对多 or 多对多场景
     @Desc:
@@ -306,7 +307,7 @@ def create_lock_restr_amt(request, update_undelegate_freeze_duration, normal_aid
             - A、B节点都赎回锁仓金额
     """
     req_param = request.param
-    chain, new_gen_file = update_undelegate_freeze_duration
+    chain, new_gen_file = choose_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -431,13 +432,13 @@ def create_lock_mix_amt_restr_unlock_long(create_lock_free_amt):
 
 
 @pytest.fixture()
-def create_lock_mix_amt_unlock_eq(request, update_undelegate_freeze_duration, normal_aides):
+def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, normal_aides):
     """
     创建锁定期 混合金额 锁仓金额和自由金额解锁周期相等
     # 赎回委托金额: BaseData.delegate_amount * 2
     """
     req_param = request.param
-    chain, new_gen_file = update_undelegate_freeze_duration
+    chain, new_gen_file = choose_undelegate_freeze_duration
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -463,3 +464,10 @@ def create_lock_mix_amt_unlock_eq(request, update_undelegate_freeze_duration, no
                                                        amount=BaseData.delegate_amount * 2, )['code'] == 0
 
     yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+
+
+@pytest.fixture()
+def test02(choose_undelegate_freeze_duration):
+    chain, new_gen_file = choose_undelegate_freeze_duration
+    print(chain, new_gen_file)
+    pass

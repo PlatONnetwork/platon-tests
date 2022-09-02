@@ -8,14 +8,15 @@
 import inspect
 from decimal import Decimal
 
+import platon_typing
 import pytest
 from loguru import logger
 from platon._utils.error_code import ERROR_CODE
 
 from lib.assertion import Assertion
 from lib.basic_data import BaseData as BD
-from lib.funcs import wait_settlement
-from lib.utils import p_get_delegate_lock_info, p_get_restricting_info, p_get_delegate_info
+from lib.funcs import wait_settlement, wait_consensus
+from lib.utils import p_get_delegate_lock_info, p_get_restricting_info, p_get_delegate_info, get_pledge_list
 
 logger.add("logs/case_{time}.log", rotation="500MB")
 
@@ -43,6 +44,7 @@ def wait_unlock_diff_balance(aide, aide_nt, wait_num=2):
 class TestDelegateLockOneAccToManyNode:
     """ 测试单账户-多节点场景 """
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": False}], indirect=True)
     def test_lock_free_amt(self, create_lock_free_amt):
         """
@@ -113,6 +115,7 @@ class TestDelegateLockOneAccToManyNode:
         logger.info("-验证锁定期数据")
         Assertion.del_lock_info_zero_money(normal_aide0, normal_aide0_nt)
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": False}], indirect=True)
     def test_lock_restr_amt(self, create_lock_restr_amt):
         """
@@ -178,6 +181,7 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info["Pledge"] == del_amt3 + (del_amt1 * 2) + (BD.delegate_limit * 2)
         assert restr_info["debt"] == 0
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": False, "MixAcc": False}], indirect=True)
     def test_lock_mix_amt_free_unlock_long(self, create_lock_mix_amt_free_unlock_long):
         """
@@ -252,6 +256,7 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount - RestrictingPlan
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": False}], indirect=True)
     def test_lock_mix_amt_restr_unlock_long(self, create_lock_mix_amt_restr_unlock_long):
         """
@@ -324,6 +329,7 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False}], indirect=True)
     def test_lock_mix_amt_unlock_eq(self, create_lock_mix_amt_unlock_eq):
         """
@@ -401,6 +407,7 @@ class TestDelegateLockOneAccToManyNode:
 class TestDelegateLockManyAccToManyNode:
     """ 测试多账户-多节点场景 """
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
     def test_lock_free_amt(self, create_lock_free_amt):
         """
@@ -481,6 +488,7 @@ class TestDelegateLockManyAccToManyNode:
         logger.info("-验证B1账户锁定期无数据")
         Assertion.del_lock_info_zero_money(normal_aide1, normal_aide1_nt)
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True}], indirect=True)
     def test_lock_restr_amt(self, create_lock_restr_amt):
         """
@@ -572,6 +580,7 @@ class TestDelegateLockManyAccToManyNode:
         assert restr_info["Pledge"] == BD.delegate_amount - del_amt3
         assert restr_info["debt"] == 0
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
     def test_lock_mix_amt_free_unlock_long(self, create_lock_mix_amt_free_unlock_long):
         """
@@ -677,6 +686,7 @@ class TestDelegateLockManyAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount - RestrictingPlan
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
     def test_lock_mix_amt_restr_unlock_long(self, create_lock_mix_amt_restr_unlock_long):
         """
@@ -779,3 +789,64 @@ class TestDelegateLockManyAccToManyNode:
         restr_info = p_get_restricting_info(normal_aide0, normal_aide1_nt)
         assert restr_info['Pledge'] == BD.delegate_amount
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
+
+
+class TestDelegateLockNodeException:
+    """测试节点异常 使用锁定期金额进行委托和赎回委托"""
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 10, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
+    def test_lock_mix_amt_free_unlock_long(self, create_lock_mix_amt_free_unlock_long):
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+        assert len(p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)['Locks']) == 2
+        assert len(p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)['Locks']) == 2
+
+        validator_list = get_pledge_list(normal_aide1.staking.get_validator_list)
+        assert normal_aide1.node.node_id in validator_list
+
+        candidate_info = normal_aide1.staking.get_candidate_info(node_id=normal_aide1.node.node_id)
+        logger.info(f"{normal_aide1.node}: {candidate_info}")
+
+        logger.info(f"stop_node_id: {normal_aide1.node.node_id}:")
+        normal_aide1.node.stop()
+
+        total_staking_reward, per_block_reward = normal_aide0.calculator.get_reward_info()
+        logger.info(f"total_staking_reward: {total_staking_reward}")
+        logger.info(f"per_block_reward: {per_block_reward}, total:{per_block_reward * 5}")
+
+        for i in range(4):
+            wait_consensus(normal_aide0)
+            candidate_info = normal_aide0.staking.get_candidate_info(node_id=normal_aide1.node.node_id)
+            logger.info(f"{normal_aide1.node}: {candidate_info}")
+            if candidate_info.Status == 0:
+                logger.info(f"已等待共识轮{i + 1}: -> 节点状态未变更前进行委托")
+                assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+                                                      private_key=normal_aide1_nt.del_pk)['code'] == 0
+            else:
+                logger.info(f"已等待共识轮{i + 1}: -> 节点状态异常进行委托")
+                res = normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+                                                     private_key=normal_aide1_nt.del_pk)
+                assert res['message'] == ERROR_CODE[301103]
+                break
+
+        wait_settlement(normal_aide0)
+
+        candidate_info = normal_aide0.staking.get_candidate_info(node_id=normal_aide1.node.node_id)
+        logger.info(f"{normal_aide1.node}: {candidate_info}")
+
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+                                              private_key=normal_aide1_nt.del_pk)['code'] == 0
+        logger.info(f"start_node_id: {normal_aide1.node.node_id}:")
+        normal_aide1.node.start()
+        logger.info(f"{normal_aide1.node}: 委托BD.delegate_amount, 会使用锁定期自由金额+锁仓金额")
+        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1.node.node_id,
+                                              private_key=normal_aide1_nt.del_pk)['code'] == 0
+        lock_info = p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)
+        logger.info(f"{normal_aide1.node}: 锁定期只剩下锁仓金额")
+        assert len(lock_info["Locks"]) == 1
+
+        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1.node.node_id,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+    pass
