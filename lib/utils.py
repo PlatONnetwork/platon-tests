@@ -125,3 +125,14 @@ def p_get_delegate_info(aide, del_addr, aide_nt):
     del_info = aide.delegate.get_delegate_info(del_addr, aide_nt.node_id, aide_nt.StakingBlockNum)
     logger.info(f"delegate_info: {del_info}")
     return del_info
+
+
+def p_get_candidate_info(run_aide, query_aide):
+    """
+    查询并打印 node_id 质押信息
+    @param run_aide: 存活aide
+    @param query_aide: 查询aide
+    """
+    candidate_info = run_aide.staking.get_candidate_info(node_id=query_aide.node.node_id)
+    logger.info(f"{query_aide.node}: {candidate_info}")
+    return candidate_info

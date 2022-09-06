@@ -1,4 +1,5 @@
 from deepdiff import DeepDiff
+from loguru import logger
 
 from lib.utils import p_get_delegate_lock_info
 
@@ -34,11 +35,40 @@ class Assertion:
         assert set_data == expect_data, f"set_data: {set_data} != expect_data: {expect_data}"
 
     @classmethod
-    def del_release_money(cls, normal_aide0, normal_aide0_nt, expect_data):
+    def del_lock_release_money(cls, normal_aide0, normal_aide0_nt, expect_data):
         """验证委托锁定 已释放的金额"""
         lock_info = p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
         assert lock_info['Released'] == expect_data['Released']
         assert lock_info['RestrictingPlan'] == expect_data['RestrictingPlan']
+
+    @classmethod
+    def assert_delegate_info_contain(cls, delegate_info, expect_data: dict):
+        """delegate_info 包含 expect_data"""
+        x = set(delegate_info.items())
+        y = set(expect_data.items())
+        assert x.issuperset(y)
+
+    @classmethod
+    def diff_restr_info(cls, before, last) -> dict:
+        """
+        对比锁仓信息,返回不一致数据
+        @param before:
+        @param last:
+        @return:
+        """
+        res = DeepDiff(before, last)
+        diff_info = dict()
+        if res.get('values_changed'):
+            for item in res['values_changed'].items():
+                title = item[0].split("'")[1]
+                diff_info[title] = item[1]
+        logger.info(f"diff_restr_info: {diff_info}")
+        return diff_info
+
+    @classmethod
+    def assert_restr_amt(cls, before, last, expect_data):
+        diff_info = cls.diff_restr_info(before, last)
+        assert diff_info == expect_data
 
 
 if __name__ == '__main__':

@@ -12,6 +12,7 @@ from platon_env.genesis import Genesis
 
 from lib.basic_data import BaseData
 from lib.funcs import assert_chain, get_aides, wait_settlement
+from lib.utils import p_get_delegate_lock_info
 from setting.setting import BASE_DIR, GENESIS_FILE
 
 
@@ -245,9 +246,13 @@ def update_undelegate_freeze_duration_three(chain: Chain):
 def choose_undelegate_freeze_duration(request, chain):
     req_param = request.param
     duration = req_param.get("duration")
+    slashBlocksReward = req_param.get("slashBlock")
 
     genesis = Genesis(GENESIS_FILE)
     new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
+    if slashBlocksReward:
+        genesis.data['economicModel']['slashing']['slashBlocksReward'] = slashBlocksReward
+
     if duration > 2:
         genesis.data['economicModel']['staking']['unStakeFreezeDuration'] = duration
         genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = duration
@@ -450,19 +455,24 @@ def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, no
     lockup_amount = BaseData.delegate_amount  # platon/10 * 100
     plan = [{'Epoch': 10, 'Amount': lockup_amount}]
 
+    logger.info(f"{normal_aide0.node}: 创建质押和 混合金额")
     normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
     if req_param.get("ManyAcc"):
+        logger.info(f"{normal_aide1.node}: 创建质押和 混合金额")
         normal_aide1_namedtuple = create_sta_del(normal_aide1, plan, mix=True)
     else:
+        logger.info(f"{normal_aide1.node}: 创建质押和 自由金额")
         normal_aide1_namedtuple = create_sta_del(normal_aide1, )
 
     wait_settlement(normal_aide0)
-
+    logger.info(f"{normal_aide0.node}: 赎回锁仓+自由金额 进入冻结期")
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount * 2, )['code'] == 0
     if req_param.get("ManyAcc"):
+        logger.info(f"{normal_aide1.node}: 赎回锁仓+自由金额 进入冻结期")
         assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide1_namedtuple.del_pk,
+                                                       node_id=normal_aide1.node.node_id,
                                                        staking_block_identifier=normal_aide1_namedtuple.StakingBlockNum,
                                                        amount=BaseData.delegate_amount * 2, )['code'] == 0
 
@@ -470,7 +480,40 @@ def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, no
 
 
 @pytest.fixture()
-def test02(choose_undelegate_freeze_duration):
-    chain, new_gen_file = choose_undelegate_freeze_duration
-    print(chain, new_gen_file)
-    pass
+def lock_mix_amt_unlock_eq_delegate(create_lock_mix_amt_unlock_eq):
+    """使用锁定期混合金额进行委托"""
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+
+    logger.info(f"使用锁定期 锁仓+自由金额委托 delegate_limit * 110 = 1100")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount + (BaseData.delegate_limit * 10), 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+    logger.info(f"使用锁定期 自由金额委托 delegate_limit * 70 = 700")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_limit * 70, 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+    assert len(p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)['Locks']) == 1
+
+    lock_residue_amt = BaseData.delegate_amount * 2 - (BaseData.delegate_amount + BaseData.delegate_limit * 80)
+    logger.info(f"锁定期剩余锁仓金额: {lock_residue_amt} (2000 - 1100 - 700 = 200) ")
+    yield normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt
+
+
+@pytest.fixture()
+def acc_mix_amt_delegate(create_lock_mix_amt_unlock_eq):
+    """使用锁定期混合金额进行委托"""
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+    # 确保使用账户金额委托 和 使用锁定期金额委托 所处于同一周期
+    assert normal_aide0.platon.block_number < 320
+    logger.info(f"使用账户自由金额委托: {BaseData.delegate_amount}")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 0,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+    logger.info(f"使用账户锁仓金额委托: {BaseData.delegate_amount}")
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+    logger.info(f'{f"{normal_aide0.node}: 锁仓金额委托":*^50s}')
+    assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                private_key=normal_aide0_nt.del_pk)['code'] == 0
+    assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+    assert normal_aide0.platon.block_number < 320
