@@ -1,70 +1,80 @@
 import os.path
 import time
 from collections import namedtuple
-from os.path import join
 from random import choice
 
 import pytest
 from loguru import logger
 from platon_aide import Aide
+from platon_aide.economic import Economic
+from platon_env import Node
 from platon_env.chain import Chain
 from platon_env.genesis import Genesis
 
+from lib.account import new_account
 from lib.basic_data import BaseData
 from lib.funcs import assert_chain, get_aides, wait_settlement
-from setting.setting import BASE_DIR, GENESIS_FILE
-
-
-@pytest.fixture(scope='session')
-def chain(request):
-    """ 返回链对象，不恢复环境，请谨慎使用
-    """
-    chain_file = request.config.getoption("--chainFile")
-    chain = Chain.from_file(join(BASE_DIR, chain_file))
-    # 先清理supervisor，再进行安装
-    for host in chain.hosts:
-        host.supervisor.clean()
-    chain.install()
-    # todo：优化等待链出块的方式
-    time.sleep(3)
-
-    yield chain
-    # chain.uninstall()
+from setting.setting import GENESIS_FILE
 
 
 @pytest.fixture
-def deploy_chain(chain):
-    chain.install()
-    logger.info(f"deploy_chain")
-    time.sleep(5)
-
-
-@pytest.fixture
-def condition_chain(chain, request):
-    """
-    支持在使用该fixture时，传入一个参数，返回一个符合条件的chain对象。
-    当前链无法满足条件时，会进行重新部署。
-    注意：
+def chain(initializer, request) -> Chain:
+    """ 返回一个符合条件的chain对象
+    使用方法：
     1、通过lib.funcs.CONDITIONS，获取当前支持的判断条件
     2、多个条件，请使用多个fixture来完成
     """
-    condition = request.param
-    result = assert_chain(chain, condition)
-    if not result:
-        chain.install()
-    return chain
+    condition = getattr(request, 'param', None)
+
+    # 根据条件判断，是否可以直接使用环境
+    if condition:
+        result = assert_chain(initializer, condition)
+        if result:
+            return initializer
+
+    # 重新初始化环境
+    initializer.stop()
+    initializer.init(force=True)
+    initializer.start()
+
+    return initializer
 
 
-@pytest.fixture()
-def reset_chain(chain: Chain):
-    """ 返回chain对象，并且在用例运行完成后恢复环境
-    """
-    chain.install()
-    time.sleep(5)  # 等待链出块
+@pytest.fixture
+def nodes(chain) -> [Node]:
+    return chain.nodes
+
+
+@pytest.fixture
+def init_nodes(chain) -> [Node]:
+    return chain.init_nodes
+
+
+@pytest.fixture
+def normal_nodes(chain) -> [Node]:
+    return chain.normal_nodes
+
+
+@pytest.fixture
+def aides(nodes) -> [Aide]:
+    aides = [node.aide for node in nodes]
+    return aides
+
+
+@pytest.fixture
+def init_aides(init_nodes) -> [Aide]:
+    aides = [node.aide for node in init_nodes]
+    return aides
+
+
+@pytest.fixture
+def normal_aides(normal_nodes) -> [Aide]:
+    aides = [node.aide for node in normal_nodes]
+    return aides
 
 
 @pytest.fixture(scope='session')
-def aides(chain: Chain):
+def aides(chain):
     """ 返回链上所有节点的aide对象列表
     """
     aides = get_aides(chain, 'all')
@@ -79,6 +89,14 @@ def aide(aides) -> Aide:
     return choice(aides)
 
 
+# @pytest.fixture
+# def init_aide(init_aides) -> Aide:
+#     """ 返回一个创世节点的aide对象
+#     """
+#     return choice(init_aides)
+
+
+# todo: 待切换为新实现
 @pytest.fixture(scope='session')
 def init_aides(chain: Chain):
     """ 返回链上创世节点的aide对象列表
@@ -88,14 +106,14 @@ def init_aides(chain: Chain):
     return init_aides
 
 
-@pytest.fixture
-def init_aide(init_aides):
-    """ 返回一个创世节点的aide对象
-    """
-    init_aides = choice(init_aides)
-    return init_aides
+# @pytest.fixture
+# def normal_aide(normal_aides) -> Aide:
+#     """ 返回一个普通节点的aide对象
+#     """
+#     return choice(normal_aides)
 
 
+# todo: 待切换为新实现
 @pytest.fixture(scope='session')
 def normal_aides(chain: Chain):
     """ 返回链上普通节点的aide对象列表
@@ -106,62 +124,32 @@ def normal_aides(chain: Chain):
 
 
 @pytest.fixture
-def normal_aide(normal_aides) -> Aide:
+def economic(aide) -> Economic:
     """ 返回一个普通节点的aide对象
     """
-    normal_aide = choice(normal_aides)
-    return normal_aide
-
-
-@pytest.fixture
-def validator_aides():
-    ...
-
-
-@pytest.fixture
-def validator_aide(validator_aides):
-    ...
-
-
-@pytest.fixture
-def verifier_aides():
-    ...
-
-
-@pytest.fixture
-def verifier_aide(validator_aides):
-    ...
+    return aide.economic
 
 
 @pytest.fixture()
-def solidity(node, request):
-    """ 根据传入的合约参数，返回一个solidity合约对象
-    注意：
-    1、
+def solidity(aide, request):
+    """ 根据传入的合约名称，编译合约，并返回一个solidity合约对象
+    # todo: 待实现
     """
     name = request.param
     file = ''
     assert os.path.isfile(file), ''
-    return node.web3.platon.contract()
+    return aide.web3.platon.contract()
 
 
 @pytest.fixture()
-def wasm(node, request):
-    """ 根据传入的合约参数，返回一个solidity合约对象
+def wasm(aide, request):
+    """ 根据传入的合约名称，编译合约，返回一个wasm合约对象
+    # todo: 待实现
     """
     name = request.param
     file = ''
     assert os.path.isfile(file), ''
-    return node.web3.platon.contract(vm_type='wasm')
-
-
-def generate_account(aide, balance=0):
-    account = aide.platon.account.create(hrp=aide.hrp)
-    address = account.address
-    prikey = account.privateKey.hex()[2:]
-    if balance != 0:
-        aide.transfer.transfer(address, balance)
-    return address, prikey
+    return aide.web3.platon.contract(vm_type='wasm')
 
 
 # def get_datahash(aide, txn, privatekey=Master_prikey):
@@ -176,8 +164,8 @@ def generate_account(aide, balance=0):
 
 
 def create_sta_del_account(aide, sta_amt, del_amt):
-    sta_addr, sta_pk = generate_account(aide, sta_amt)
-    del_addr, del_pk = generate_account(aide, del_amt)
+    sta_addr, sta_pk = new_account(aide, sta_amt)
+    del_addr, del_pk = new_account(aide, del_amt)
     return sta_addr, sta_pk, del_addr, del_pk
 
 

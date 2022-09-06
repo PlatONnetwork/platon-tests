@@ -5,12 +5,12 @@ from platon_aide.economic import Economic
 
 from lib import utils
 from lib.funcs import wait_settlement
-from tests.conftest import generate_account
+from lib.account import new_account
 
 
 def create_restricting_plan(aide):
-    address, prikey = generate_account(aide, aide.delegate._economic.staking_limit * 10)
-    restrict_address, restrict_prikey = generate_account(aide, aide.delegate._economic.staking_limit)
+    address, prikey = new_account(aide, aide.delegate._economic.staking_limit * 10)
+    restrict_address, restrict_prikey = new_account(aide, aide.delegate._economic.staking_limit)
     plan = [
         {'Epoch': 5, 'Amount': aide.web3.toVon(1000, 'lat')}
     ]
@@ -27,7 +27,7 @@ def nodes_staking_update_reward_per(aides: List, amount: List, reward_per: List)
     for item in range(len(reward_per)):
         aide, rew_per = aides[item], reward_per[item]
 
-        address, prikey = generate_account(aide, aide.delegate._economic.staking_limit * 10)
+        address, prikey = new_account(aide, aide.delegate._economic.staking_limit * 10)
         res = aide.staking.create_staking(amount=amount[item], benefit_address=address, private_key=prikey,
                                           reward_per=rew_per)
         assert res['code'] == 0

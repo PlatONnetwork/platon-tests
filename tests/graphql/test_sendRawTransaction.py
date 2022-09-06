@@ -1,5 +1,6 @@
 from lib.funcs import wait_settlement
-from tests.conftest import generate_account, get_datahash
+from tests.conftest import get_datahash
+from lib.account import new_account
 
 
 def test_sendRawTransaction(normal_aide):
@@ -12,7 +13,7 @@ def test_sendRawTransaction(normal_aide):
 
 def test_sendRawTransaction_staking(normal_aide):
     # create_staking
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.set_returns(returns='txn')
     txn = normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
     data_hash = get_datahash(normal_aide, txn, privatekey=prikey)
@@ -31,7 +32,7 @@ def test_sendRawTransaction_staking(normal_aide):
 
 def test_sendRawTransaction_increase_staking(normal_aide):
     # increase_staking
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
     normal_aide.set_returns(returns='txn')
     txn = normal_aide.staking.increase_staking(private_key=prikey)
@@ -50,7 +51,7 @@ def test_sendRawTransaction_increase_staking(normal_aide):
 
 def test_sendRawTransaction_edit_staking(normal_aide):
     # edit_staking
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
     normal_aide.set_returns(returns='txn')
     node_name = 'hello platon'
@@ -71,7 +72,7 @@ def test_sendRawTransaction_edit_staking(normal_aide):
 
 def test_sendRawTransaction_withdrew_staking(normal_aide):
     # withdrew_staking
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
     normal_aide.set_returns(returns='txn')
     txn = normal_aide.staking.withdrew_staking(private_key=prikey)
@@ -90,9 +91,9 @@ def test_sendRawTransaction_withdrew_staking(normal_aide):
 
 def test_sendRawTransaction_delegate(normal_aide):
     # delegate
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
-    delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 2)
+    delegate_address, delegate_prikey = new_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 2)
     normal_aide.set_returns(returns='txn')
     txn = normal_aide.delegate.delegate(private_key=delegate_prikey)
     data_hash = get_datahash(normal_aide, txn, privatekey=delegate_prikey)
@@ -110,9 +111,9 @@ def test_sendRawTransaction_delegate(normal_aide):
 
 def test_sendRawTransaction_withdrew_delegate(normal_aide):
     # withdrew_delegate
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 2)
     normal_aide.staking.create_staking(benifit_address=address, private_key=prikey)
-    delegate_address, delegate_prikey = generate_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 2)
+    delegate_address, delegate_prikey = new_account(normal_aide, normal_aide.delegate._economic.delegate_limit * 2)
     normal_aide.delegate.delegate(private_key=delegate_prikey)
 
     normal_aide.set_returns(returns='txn')
@@ -134,7 +135,7 @@ def test_sendRawTransaction_withdrew_delegate(normal_aide):
 
 def test_sendRawTransaction_version_proposal(normal_aide):
     # version_proposal
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
     normal_aide.staking.create_staking(amount=normal_aide.delegate._economic.staking_limit * 2 ,benifit_address=address, private_key=prikey)
     wait_settlement(normal_aide)
 
@@ -160,7 +161,7 @@ def test_sendRawTransaction_version_proposal(normal_aide):
 def test_sendRawTransaction_cancel_proposal(normal_aide):
     # version_proposal
     # todo: 返回码报错302008PIPID已存在
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
     normal_aide.staking.create_staking(amount=normal_aide.delegate._economic.staking_limit * 2 ,benifit_address=address, private_key=prikey)
     wait_settlement(normal_aide)
     txn = {'gas': 2100000, 'gasPrice': 30000000000000}
@@ -191,7 +192,7 @@ def test_sendRawTransaction_cancel_proposal(normal_aide):
 
 def test_sendRawTransaction_declare_proposal(normal_aide):
     # version_proposal
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
     normal_aide.staking.create_staking(amount=normal_aide.delegate._economic.staking_limit * 2 ,benifit_address=address, private_key=prikey)
     # wait_settlement(normal_aide)
 
@@ -214,4 +215,4 @@ def test_sendRawTransaction_declare_proposal(normal_aide):
 
 def test_sendRawTransaction_restricting(normal_aide):
     # restricting
-    address, prikey = generate_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
+    address, prikey = new_account(normal_aide, normal_aide.delegate._economic.staking_limit * 3)
