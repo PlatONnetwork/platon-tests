@@ -23,8 +23,6 @@ def initializer(request) -> Chain:
     for host in chain.hosts:
         host.supervisor.clean()
     chain.install()
-    # todo：优化等待链出块的方式
-    time.sleep(3)
 
     yield chain
     chain.uninstall()

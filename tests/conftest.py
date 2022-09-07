@@ -11,18 +11,24 @@ from platon_env import Node
 from platon_env.chain import Chain
 from platon_env.genesis import Genesis
 
-from lib.account import new_account
+from lib.utils import new_account
 from lib.basic_data import BaseData
-from lib.funcs import assert_chain, get_aides, wait_settlement
+from lib.funcs import assert_chain, wait_settlement
 from setting.setting import GENESIS_FILE
+from setting.account import MAIN_ACCOUNT
 
 
 @pytest.fixture
 def chain(initializer, request) -> Chain:
-    """ 返回一个符合条件的chain对象
+    """ 返回一个符合条件的chain对象，如果没有指定条件，会重新初始化chain后返回
     使用方法：
-    1、通过lib.funcs.CONDITIONS，获取当前支持的判断条件
-    2、多个条件，请使用多个fixture来完成
+    1、和普通fixture一样直接使用
+    2、从测试用例中传入条件到fixture（条件定义：lib.funcs.CONDITIONS）
+
+    使用示例：
+    @pytest.mark.parametrize('chain', ['test'], indirect=True)
+    def test_example(chain):
+        ...
     """
     condition = getattr(request, 'param', None)
 
@@ -58,27 +64,27 @@ def normal_nodes(chain) -> [Node]:
 @pytest.fixture
 def aides(nodes) -> [Aide]:
     aides = [node.aide for node in nodes]
+    for aide in aides:
+        aide.set_default_account(MAIN_ACCOUNT)
+
     return aides
 
 
 @pytest.fixture
 def init_aides(init_nodes) -> [Aide]:
     aides = [node.aide for node in init_nodes]
+    for aide in aides:
+        aide.set_default_account(MAIN_ACCOUNT)
+
     return aides
 
 
 @pytest.fixture
 def normal_aides(normal_nodes) -> [Aide]:
     aides = [node.aide for node in normal_nodes]
-    return aides
+    for aide in aides:
+        aide.set_default_account(MAIN_ACCOUNT)
 
-
-@pytest.fixture(scope='session')
-def aides(chain):
-    """ 返回链上所有节点的aide对象列表
-    """
-    aides = get_aides(chain, 'all')
-    BaseData(aides).set_var_info()
     return aides
 
 
@@ -89,38 +95,18 @@ def aide(aides) -> Aide:
     return choice(aides)
 
 
-# @pytest.fixture
-# def init_aide(init_aides) -> Aide:
-#     """ 返回一个创世节点的aide对象
-#     """
-#     return choice(init_aides)
-
-
-# todo: 待切换为新实现
-@pytest.fixture(scope='session')
-def init_aides(chain: Chain):
-    """ 返回链上创世节点的aide对象列表
+@pytest.fixture
+def init_aide(init_aides) -> Aide:
+    """ 返回一个创世节点的aide对象
     """
-    init_aides = get_aides(chain, 'init')
-    BaseData(init_aides).set_var_info()
-    return init_aides
+    return choice(init_aides)
 
 
-# @pytest.fixture
-# def normal_aide(normal_aides) -> Aide:
-#     """ 返回一个普通节点的aide对象
-#     """
-#     return choice(normal_aides)
-
-
-# todo: 待切换为新实现
-@pytest.fixture(scope='session')
-def normal_aides(chain: Chain):
-    """ 返回链上普通节点的aide对象列表
+@pytest.fixture
+def normal_aide(normal_aides) -> Aide:
+    """ 返回一个普通节点的aide对象
     """
-    normal_aides = get_aides(chain, 'normal')
-    BaseData(normal_aides).set_var_info()
-    return normal_aides
+    return choice(normal_aides)
 
 
 @pytest.fixture
