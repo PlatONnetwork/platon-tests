@@ -9,22 +9,3 @@ REWARD_ADDRESS = to_bech32_address('0x1000000000000000000000000000000000000003',
 MAIN_ACCOUNT = Account.from_key('f51ca759562e1daf9e5302d121f933a8152915d34fcbc27e542baf256b5e4b74', HRP)
 CDF_ACCOUNT = Account.from_key('64bc85af4fa0e165a1753b762b1f45017dd66955e2f8eea00333db352198b77e', HRP)
 FUND_ACCOUNT = Account.from_key('5c76634db529cb19871f56f12564d52cfe66529cd2ca658ab61b30010d5415d3', HRP)
-
-
-# def new_account(aide, balance: int = 0):
-#     account = aide.platon.account.create(hrp=aide.hrp)
-#     if balance:
-#         aide.transfer.transfer(account.address, balance)
-#     return account
-
-
-# todo: 待切换为新的实现
-def new_account(aide, balance=0):
-    account = aide.platon.account.create(hrp=aide.hrp)
-    address = account.address
-    prikey = account.privateKey.hex()[2:]
-    if balance != 0:
-        aide.transfer.transfer(address, balance)
-    return address, prikey
-
-
