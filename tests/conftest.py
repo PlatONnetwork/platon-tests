@@ -12,7 +12,7 @@ from platon_env.genesis import Genesis
 
 from lib.basic_data import BaseData
 from lib.funcs import assert_chain, get_aides, wait_settlement
-from lib.utils import p_get_delegate_lock_info
+from lib.utils import PrintInfo as PF
 from setting.setting import BASE_DIR, GENESIS_FILE
 
 
@@ -480,9 +480,15 @@ def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, no
 
 
 @pytest.fixture()
-def lock_mix_amt_unlock_eq_delegate(create_lock_mix_amt_unlock_eq):
-    """使用锁定期混合金额进行委托"""
+def lock_mix_amt_unlock_eq_delegate(request, create_lock_mix_amt_unlock_eq):
+    """
+    使用锁定期混合金额进行委托
+    @param request: wait_settlement字段来控制 True 锁定期金额委托生效期 False 锁定期金额委托犹豫期
+    @param create_lock_mix_amt_unlock_eq:
+    @return:
+    """
     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+    req_param = request.param
 
     logger.info(f"使用锁定期 锁仓+自由金额委托 delegate_limit * 110 = 1100")
     assert normal_aide0.delegate.delegate(BaseData.delegate_amount + (BaseData.delegate_limit * 10), 3,
@@ -491,19 +497,29 @@ def lock_mix_amt_unlock_eq_delegate(create_lock_mix_amt_unlock_eq):
     assert normal_aide0.delegate.delegate(BaseData.delegate_limit * 70, 3,
                                           private_key=normal_aide0_nt.del_pk)['code'] == 0
 
-    assert len(p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)['Locks']) == 1
+    assert len(PF.p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)['Locks']) == 1
 
     lock_residue_amt = BaseData.delegate_amount * 2 - (BaseData.delegate_amount + BaseData.delegate_limit * 80)
-    logger.info(f"锁定期剩余锁仓金额: {lock_residue_amt} (2000 - 1100 - 700 = 200) ")
+    logger.info(f"锁定期剩余自由金额: {lock_residue_amt} (2000 - 1100 - 700 = 200) ")
+
+    if req_param.get("wait_settlement"):
+        # 使锁定期委托金额 —> 进入 生效期
+        wait_settlement(normal_aide0)
+
     yield normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt
 
 
 @pytest.fixture()
-def acc_mix_amt_delegate(create_lock_mix_amt_unlock_eq):
-    """使用锁定期混合金额进行委托"""
+def acc_mix_amt_delegate(request, create_lock_mix_amt_unlock_eq):
+    """
+    使用账户混合金额进行委托
+    @param request: wait_settlement字段来控制 True 账户金额委托生效期 False 账户金额委托犹豫期
+    @param create_lock_mix_amt_unlock_eq:
+    @return:
+    """
     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
-    # 确保使用账户金额委托 和 使用锁定期金额委托 所处于同一周期
-    assert normal_aide0.platon.block_number < 320
+    req_param = request.param
+
     logger.info(f"使用账户自由金额委托: {BaseData.delegate_amount}")
     assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 0,
                                           private_key=normal_aide0_nt.del_pk)['code'] == 0
@@ -516,4 +532,7 @@ def acc_mix_amt_delegate(create_lock_mix_amt_unlock_eq):
                                                 private_key=normal_aide0_nt.del_pk)['code'] == 0
     assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
                                           private_key=normal_aide0_nt.del_pk)['code'] == 0
-    assert normal_aide0.platon.block_number < 320
+
+    if req_param.get("wait_settlement"):
+        # 使账户委托金额 —> 进入 生效期
+        wait_settlement(normal_aide0)

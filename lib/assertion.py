@@ -1,7 +1,7 @@
 from deepdiff import DeepDiff
 from loguru import logger
 
-from lib.utils import p_get_delegate_lock_info
+from lib.utils import PrintInfo as PF
 
 
 class Assertion:
@@ -21,13 +21,13 @@ class Assertion:
     @classmethod
     def del_lock_info_zero_money(cls, normal_aide0, normal_aide0_nt):
         """验证委托锁定期 无锁定与待领取金额"""
-        lock_info = p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
+        lock_info = PF.p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
         assert {len(lock_info['Locks']), lock_info['Released'], lock_info['RestrictingPlan']} == {0}
 
     @classmethod
     def del_locks_money(cls, normal_aide0, normal_aide0_nt, expect_data):
         """验证委托锁定期 锁定中的金额"""
-        lock_info = p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
+        lock_info = PF.p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
         assert len(lock_info['Locks']) == len(expect_data), f"'Locks':{lock_info['Locks']}, 'Expect': {expect_data}"
         set_data = set()
         for i in lock_info['Locks']:
@@ -37,7 +37,7 @@ class Assertion:
     @classmethod
     def del_lock_release_money(cls, normal_aide0, normal_aide0_nt, expect_data):
         """验证委托锁定 已释放的金额"""
-        lock_info = p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
+        lock_info = PF.p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
         assert lock_info['Released'] == expect_data['Released']
         assert lock_info['RestrictingPlan'] == expect_data['RestrictingPlan']
 

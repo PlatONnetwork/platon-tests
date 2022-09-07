@@ -5,6 +5,7 @@
 @Version :  V1.0
 @Desc    :  链上常用基础数据
 """
+from decimal import Decimal
 
 
 class BaseData(object):
@@ -18,6 +19,7 @@ class BaseData(object):
 
     von_limit = None
     von_k = None
+    von_min = None
 
     def __init__(self, aides: list):
         self.aides = aides
@@ -35,4 +37,5 @@ class BaseData(object):
 
         BaseData.von_limit = aide.web3.toVon(1, "lat")
         BaseData.von_k = BaseData.von_limit * 1000
+        BaseData.von_min = int(Decimal(BaseData.von_limit) * Decimal(0.001))
         pass
