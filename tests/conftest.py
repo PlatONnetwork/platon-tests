@@ -536,3 +536,41 @@ def acc_mix_amt_delegate(request, create_lock_mix_amt_unlock_eq):
     if req_param.get("wait_settlement"):
         # 使账户委托金额 —> 进入 生效期
         wait_settlement(normal_aide0)
+
+
+@pytest.fixture()
+def acc_mix_diff_cycle_delegate(request, create_lock_mix_amt_unlock_eq):
+    """
+    构造账户两种金额 发起委托 在不同周期
+    @param request:
+        - restr_wait(True): 1.先锁仓委托 进入生效期 2.在自由金额委托 犹豫期
+        - free_wait(True): 1.先自由金额委托 进入生效期 2.在锁仓委托 犹豫期
+        * 若想两种金额类型都在生效期 使用fixture: acc_mix_amt_delegate wait_settlement=True
+    @param create_lock_mix_amt_unlock_eq:
+    @return:
+    """
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+    req_param = request.param
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+
+    if req_param.get("restr_wait"):
+        logger.info(f'{f"{normal_aide0.node}: 账户锁仓金额委托":*^50s}')
+        assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                    private_key=normal_aide0_nt.del_pk)['code'] == 0
+        assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+        wait_settlement(normal_aide0)
+
+    logger.info(f"账户自由金额委托: {BaseData.delegate_amount}")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 0,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+    if req_param.get("free_wait"):
+        wait_settlement(normal_aide0)
+        logger.info(f'{f"{normal_aide0.node}: 账户锁仓金额委托":*^50s}')
+        assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                    private_key=normal_aide0_nt.del_pk)['code'] == 0
+        assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+    pass
