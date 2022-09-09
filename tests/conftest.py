@@ -574,3 +574,157 @@ def acc_mix_diff_cycle_delegate(request, create_lock_mix_amt_unlock_eq):
         assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
     pass
+
+
+@pytest.fixture()
+def acc_lock_mix_diff_cycle_del(request, create_lock_mix_amt_unlock_eq):
+    """
+    适用场景:
+    - 自由金额 犹豫期  /  锁仓金额 生效期 (账户)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[restr_wait],"Lock"[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[restr_wait],"Lock"[free_wait]}
+    - 自由金额 生效期  /  锁仓金额 犹豫期 (账户)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[free_wait],"Lock"[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[free_wait],"Lock"[free_wait]}
+    - 自由金额 犹豫期  /  锁仓金额 生效期 (锁定期)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[restr_wait],"Acc":[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[restr_wait],"Acc":[free_wait]}
+    - 自由金额 生效期  /  锁仓金额 犹豫期 (锁定期)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[free_wait],"Acc":[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[free_wait],"Acc":[free_wait]}
+
+    @request.param:
+        示例： init_data = {"Acc": {"restr_wait": True}, "Lock": {"restr_wait": True}}
+              init_data = {"Lock": {"free_wait": True}, "Acc": {"free_wait": True}}
+              setup_data_02 = [{"Acc": {"restr_wait": True}, "Lock": {"free_wait": True}}]
+    """
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+    req_param = request.param
+    Acc_data = req_param["Acc"]
+    Lock_data = req_param["Lock"]
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+
+    if Acc_data.get("restr_wait"):
+        # 账户锁仓金额委托
+        acc_restr_delegate(normal_aide0, normal_aide0_nt, plan)
+    # 目前可用 if not Acc_data.get("restr_wait") 代替,没有找到锁仓等待,就去使用自由金额委托等待
+    if Acc_data.get("free_wait"):
+        # 账户自由金额委托
+        acc_free_delegate(normal_aide0, normal_aide0_nt)
+
+    if Lock_data.get("restr_wait"):
+        # 锁定期锁仓金额委托
+        lock_restr_delegate(normal_aide0, normal_aide0_nt)
+
+    if Lock_data.get("free_wait"):
+        # 锁定期自由金额委托 / !!! 有个潜在业务逻辑 即解锁周期一致时会先使用锁仓金额委托
+        lock_free_delegate(normal_aide0, normal_aide0_nt)
+
+    wait_settlement(normal_aide0)
+    # 等待一个周期后,反向操作一波,如上个周期用锁仓委托即这周期用自由委托
+    if Acc_data.get("restr_wait"):
+        # 账户自由金额委托
+        acc_free_delegate(normal_aide0, normal_aide0_nt)
+    if Acc_data.get("free_wait"):
+        # 账户锁仓金额委托
+        acc_restr_delegate(normal_aide0, normal_aide0_nt, plan)
+    if Lock_data.get("restr_wait"):
+        # 锁定期自由金额委托
+        lock_free_delegate(normal_aide0, normal_aide0_nt)
+    if Lock_data.get("free_wait"):
+        # 锁定期锁仓金额委托
+        lock_restr_delegate(normal_aide0, normal_aide0_nt)
+    pass
+
+
+@pytest.fixture()
+def acc_lock_mix_diff_cycle_del_free_first(request, create_lock_mix_amt_free_unlock_long):
+    """
+    适用场景:
+    - 自由金额 犹豫期  /  锁仓金额 生效期 (账户)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[restr_wait],"Lock"[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[restr_wait],"Lock"[free_wait]}
+    - 自由金额 生效期  /  锁仓金额 犹豫期 (账户)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[free_wait],"Lock"[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[free_wait],"Lock"[free_wait]}
+    - 自由金额 犹豫期  /  锁仓金额 生效期 (锁定期)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[restr_wait],"Acc":[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[restr_wait],"Acc":[free_wait]}
+    - 自由金额 生效期  /  锁仓金额 犹豫期 (锁定期)
+        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[free_wait],"Acc":[restr_wait]}
+        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[free_wait],"Acc":[free_wait]}
+
+    @request.param:
+        示例： init_data = {"Acc": {"restr_wait": True}, "Lock": {"restr_wait": True}}
+              init_data = {"Lock": {"free_wait": True}, "Acc": {"free_wait": True}}
+              setup_data_02 = [{"Acc": {"restr_wait": True}, "Lock": {"free_wait": True}}]
+    """
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+    req_param = request.param
+    Acc_data = req_param["Acc"]
+    Lock_data = req_param["Lock"]
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+
+    if Acc_data.get("restr_wait"):
+        # 账户锁仓金额委托
+        acc_restr_delegate(normal_aide0, normal_aide0_nt, plan)
+    # 目前可用 if not Acc_data.get("restr_wait") 代替,没有找到锁仓等待,就去使用自由金额委托等待
+    if Acc_data.get("free_wait"):
+        # 账户自由金额委托
+        acc_free_delegate(normal_aide0, normal_aide0_nt)
+
+    if Lock_data.get("restr_wait"):
+        # 锁定期锁仓金额委托
+        lock_restr_delegate(normal_aide0, normal_aide0_nt)
+
+    if Lock_data.get("free_wait"):
+        # 锁定期自由金额委托 / !!! 有个潜在业务逻辑 即解锁周期一致时会先使用锁仓金额委托
+        lock_free_delegate(normal_aide0, normal_aide0_nt)
+
+    wait_settlement(normal_aide0)
+    # 等待一个周期后,反向操作一波,如上个周期用锁仓委托即这周期用自由委托
+    if Acc_data.get("restr_wait"):
+        # 账户自由金额委托
+        acc_free_delegate(normal_aide0, normal_aide0_nt)
+    if Acc_data.get("free_wait"):
+        # 账户锁仓金额委托
+        acc_restr_delegate(normal_aide0, normal_aide0_nt, plan)
+    if Lock_data.get("restr_wait"):
+        # 锁定期自由金额委托
+        lock_free_delegate(normal_aide0, normal_aide0_nt)
+    if Lock_data.get("free_wait"):
+        # 锁定期锁仓金额委托
+        lock_restr_delegate(normal_aide0, normal_aide0_nt)
+    pass
+
+
+def acc_restr_delegate(normal_aide0, normal_aide0_nt, plan):
+    logger.info(f'{f"{normal_aide0.node}: 账户锁仓金额委托":*^50s}')
+    assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                private_key=normal_aide0_nt.del_pk)['code'] == 0
+    assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+
+def acc_free_delegate(normal_aide0, normal_aide0_nt):
+    logger.info(f"账户自由金额委托: {BaseData.delegate_amount}")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 0,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+
+def lock_restr_delegate(normal_aide0, normal_aide0_nt):
+    """!!! 强调,这里委托金额 锁定期 锁仓1000 (之前是锁仓1000 + 自由金额100)"""
+    logger.info(f"使用锁定期 锁仓金额委托 delegate_limit * 100")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+
+def lock_free_delegate(normal_aide0, normal_aide0_nt):
+    """!!! 强调,这里委托金额 锁定期 自由金额1000 (之前是委托了800 还剩200在锁定计划中)"""
+    logger.info(f"使用锁定期 自由金额委托 delegate_limit * 100")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0

@@ -1867,14 +1867,14 @@ class TestAccMixDiffCycle(TestWithdrewDelegate):
     - 自由金额 犹豫期  /  锁仓金额 生效期  -> TestAccFreeHesitationRestrValid
         * 锁定期Mix金额
             - 同时犹豫期
-            - 自由金额 犹豫期 / 锁仓金额 生效期
-            - 自由金额 生效期 / 锁仓金额 犹豫期
+            - 自由金额 犹豫期 / 锁仓金额 生效期  -> setup_data_01
+            - 自由金额 生效期 / 锁仓金额 犹豫期  -> setup_data_02
             - 同时生效期
     - 自由金额 生效期  /  锁仓金额 犹豫期
         * 锁定期Mix金额
             - 同时犹豫期
-            - 自由金额 犹豫期 / 锁仓金额 生效期
-            - 自由金额 生效期 / 锁仓金额 犹豫期
+            - 自由金额 犹豫期 / 锁仓金额 生效期  -> setup_data_03
+            - 自由金额 生效期 / 锁仓金额 犹豫期  -> setup_data_04
             - 同时生效期
     # 单fixture 已经无法满足需求, 组合fixture 要拼凑编写不同场景 解读成本高
     # 尝试解决方案:
@@ -1885,6 +1885,11 @@ class TestAccMixDiffCycle(TestWithdrewDelegate):
                 - 基础前置: 账户自由金额 锁仓金额 / 都在生效期, 锁定期 自由金额 锁仓金额 / 都在生效期
                 - 补充前置: 账户在发起自由金额委托  / 冻结期自由金额在次委托
     """
+    setup_data_01 = [{"Acc": {"restr_wait": True}, "Lock": {"restr_wait": True}}]
+    # 表示想先使用锁定期中自由金额,即锁定期解锁周期不能相等,需要自由金额解锁周期更长
+    setup_data_02 = [{"Acc": {"restr_wait": True}, "Lock": {"free_wait": True}}]
+    setup_data_03 = [{"Acc": {"free_wait": True}, "Lock": {"restr_wait": True}}]
+    setup_data_04 = [{"Acc": {"free_wait": True}, "Lock": {"free_wait": True}}]
     pass
 
 
@@ -1898,7 +1903,7 @@ class TestAccFreeHesitationRestrValid(TestAccMixDiffCycle):
     def test_lock_mix_hesitation(self, acc_mix_diff_cycle_delegate, lock_mix_amt_unlock_eq_delegate):
         """
         锁定期Mix金额 - 同时犹豫期
-        @param mix_diff_cycle_delegate: 自由金额 犹豫期  /  锁仓金额 生效期
+        @param acc_mix_diff_cycle_delegate: 自由金额 犹豫期  /  锁仓金额 生效期
         @param lock_mix_amt_unlock_eq_delegate: 锁定期Mix金额 - 同时犹豫期
         @Desc:
             - 赎回500     -> acc_free 回账户余额500
@@ -1958,6 +1963,124 @@ class TestAccFreeHesitationRestrValid(TestAccMixDiffCycle):
         released_plan_2 = released_plan + BD.von_k + withdrew_del_amt3
         expect_data2 = {(3, lock_residue_amt, 0), (4, withdrew_del_amt1 + released, released_plan_2)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 3, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
+    @pytest.mark.parametrize('acc_mix_diff_cycle_delegate', [{"restr_wait": True}], indirect=True)
+    @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": True}], indirect=True)
+    def test_lock_mix_valid(self, lock_mix_amt_unlock_eq_delegate, acc_mix_diff_cycle_delegate):
+        """
+        锁定期Mix金额 - 同时生效期
+        @param acc_mix_diff_cycle_delegate: 自由金额 犹豫期  /  锁仓金额 生效期
+        @param lock_mix_amt_unlock_eq_delegate: 锁定期Mix金额 - 同时生效期
+        @Desc:
+            - 赎回规则 先自由 再锁仓
+            - 再赎回1000  -> 赎回自由金额1000并冻结
+            - 再赎回1000  -> 赎回自由金额800+锁仓200并冻结
+            - 再赎回1800  -> 赎回锁仓金额1800并冻结
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt = lock_mix_amt_unlock_eq_delegate
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        expect_data = {"Released": BD.von_k - lock_residue_amt, "RestrictingPlan": BD.von_k * 2,
+                       "ReleasedHes": BD.von_k, "RestrictingPlanHes": 0,
+                       "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, expect_data)
+
+        logger.info(f"- 再赎回1000  -> 账户犹豫期自由金额1000")
+        withdrew_del_amt1 = BD.delegate_limit * 100
+        amt_before, amt_later, restr_before, restr_later = \
+            withdrew_del_diff_balance_restr(normal_aide0, normal_aide0_nt, withdrew_del_amt1, diff_restr=True)
+        assert withdrew_del_amt1 - abs(amt_later - amt_before) < BD.von_min
+        expect_data2 = {(4, lock_residue_amt, 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
+
+        logger.info(f"- 再赎回1000  -> 赎回自由金额800+锁仓200并冻结")
+        amt_before, amt_later, restr_before, restr_later = \
+            withdrew_del_diff_balance_restr(normal_aide0, normal_aide0_nt, withdrew_del_amt1, diff_restr=True)
+        assert abs(amt_later - amt_before) < BD.von_min
+        released = BD.von_k - lock_residue_amt
+        released_plan = BD.von_k - released
+        expect_data2 = {(4, lock_residue_amt, 0), (6, released, released_plan)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
+
+        logger.info(f"- 再赎回1800  -> 赎回锁仓金额1800并冻结")
+        withdrew_del_amt2 = BD.delegate_limit * 180
+        amt_before, amt_later, restr_before, restr_later = \
+            withdrew_del_diff_balance_restr(normal_aide0, normal_aide0_nt, withdrew_del_amt2, diff_restr=True)
+        assert abs(amt_later - amt_before) < BD.von_min
+        expect_data2 = {(4, lock_residue_amt, 0), (6, released, released_plan + withdrew_del_amt2)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
+    @pytest.mark.parametrize('acc_lock_mix_diff_cycle_del', TestAccMixDiffCycle.setup_data_01, indirect=True)
+    def test_lock_free_hesitation_restr_valid(self, acc_lock_mix_diff_cycle_del, create_lock_mix_amt_unlock_eq):
+        """
+        锁定期混合金额 自由金额 犹豫期 / 锁仓金额 生效期
+        @param acc_lock_mix_diff_cycle_del: 账户混合金额 自由金额 犹豫期  /  锁仓金额 生效期
+        @param create_lock_mix_amt_unlock_eq: 创建锁定期混合金额解锁周期相等
+        @Desc:
+            - 此时所有已委托总额 = 4000
+            - 赎回1500  -> 赎回账户自由金额1000 + 锁定期自由金额500并冻结
+            - 再赎回2000  -> 锁定期自由金额500并冻结 + 账户锁仓金额1000并冻结 + 锁定期锁仓金额500并冻结
+            - 再赎回500   -> 锁定期锁仓金额500并冻结
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        expect_data = {"Released": 0, "RestrictingPlan": BD.von_k * 2,
+                       "ReleasedHes": BD.von_k, "RestrictingPlanHes": 0,
+                       "LockReleasedHes": BD.von_k, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, expect_data)
+
+        logger.info(f"- 赎回1500  -> 赎回账户自由金额1000 + 锁定期自由金额500并冻结")
+        withdrew_del_amt1 = BD.delegate_limit * 150
+        amt_before, amt_later, restr_before, restr_later = \
+            withdrew_del_diff_balance_restr(normal_aide0, normal_aide0_nt, withdrew_del_amt1, diff_restr=True)
+        assert BD.delegate_amount - abs(amt_later - amt_before) < BD.von_min
+
+        expect_data2 = {(4, BD.delegate_limit * 50, 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
+
+        logger.info(f"- 再赎回2000  -> 锁定期自由金额500并冻结 + 账户锁仓金额1000并冻结 + 锁定期锁仓金额500并冻结")
+        withdrew_del_amt2 = BD.delegate_limit * 200
+        amt_before, amt_later, restr_before, restr_later = \
+            withdrew_del_diff_balance_restr(normal_aide0, normal_aide0_nt, withdrew_del_amt2, diff_restr=True)
+        assert abs(amt_later - amt_before) < BD.von_min
+
+        expect_data3 = {(4, BD.delegate_limit * 50 * 2, withdrew_del_amt1)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data3)
+
+        logger.info(f"- 再赎回500   -> 锁定期锁仓金额500并冻结")
+        withdrew_del_amt3 = BD.delegate_limit * 50
+        amt_before, amt_later, restr_before, restr_later = \
+            withdrew_del_diff_balance_restr(normal_aide0, normal_aide0_nt, withdrew_del_amt3, diff_restr=True)
+        assert abs(amt_later - amt_before) < BD.von_min
+
+        expect_data4 = {(4, BD.delegate_limit * 50 * 2, withdrew_del_amt1 + withdrew_del_amt3)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data4)
+        pass
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 5, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
+    @pytest.mark.parametrize('acc_lock_mix_diff_cycle_del_free_first', TestAccMixDiffCycle.setup_data_02, indirect=True)
+    def test_lock_free_valid_restr_hesitation(self, acc_lock_mix_diff_cycle_del_free_first,
+                                              create_lock_mix_amt_free_unlock_long):
+        """
+        锁定期混合金额 自由金额 生效期 / 锁仓金额 犹豫期
+        @param acc_lock_mix_diff_cycle_del_free_first: 账户混合金额 自由金额 犹豫期  /  锁仓金额 生效期
+        @param create_lock_mix_amt_free_unlock_long: 创建锁定期混合金额自由金额解锁周期更长
+        @Desc:
+            - 此时所有已委托总额 = 4000
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        expect_data = {"Released": BD.von_k, "RestrictingPlan": BD.von_k,
+                       "ReleasedHes": BD.von_k, "RestrictingPlanHes": 0,
+                       "LockReleasedHes": 0, "LockRestrictingPlanHes": BD.von_k}
+        Assertion.assert_delegate_info_contain(delegate_info, expect_data)
 
 
 class TestLockMixDiffCycle:
