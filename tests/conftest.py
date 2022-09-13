@@ -537,14 +537,47 @@ def acc_mix_amt_delegate(request, create_lock_mix_amt_unlock_eq):
         # 使账户委托金额 —> 进入 生效期
         wait_settlement(normal_aide0)
 
+    yield normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt
+
+
+@pytest.fixture()
+def acc_mix_amt_delegate_02(request, create_lock_mix_amt_free_unlock_long):
+    """
+    使用账户混合金额进行委托
+    @param request: wait_settlement字段来控制 True 账户金额委托生效期 False 账户金额委托犹豫期
+    @param create_lock_mix_amt_free_unlock_long:
+    @return:
+    """
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+    req_param = request.param
+
+    logger.info(f"使用账户自由金额委托: {BaseData.delegate_amount}")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 0,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+    logger.info(f"使用账户锁仓金额委托: {BaseData.delegate_amount}")
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+    logger.info(f'{f"{normal_aide0.node}: 锁仓金额委托":*^50s}')
+    assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                private_key=normal_aide0_nt.del_pk)['code'] == 0
+    assert normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+    if req_param.get("wait_settlement"):
+        # 使账户委托金额 —> 进入 生效期
+        wait_settlement(normal_aide0)
+
+    yield normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt
+
 
 @pytest.fixture()
 def acc_mix_diff_cycle_delegate(request, create_lock_mix_amt_unlock_eq):
     """
     构造账户两种金额 发起委托 在不同周期
     @param request:
-        - restr_wait(True): 1.先锁仓委托 进入生效期 2.在自由金额委托 犹豫期
-        - free_wait(True): 1.先自由金额委托 进入生效期 2.在锁仓委托 犹豫期
+        - restr_wait(True): 1.锁仓委托 进入生效期    2.自由金额委托 犹豫期
+        - free_wait(True):  1.自由金额委托 进入生效期 2.锁仓委托 犹豫期
         * 若想两种金额类型都在生效期 使用fixture: acc_mix_amt_delegate wait_settlement=True
     @param create_lock_mix_amt_unlock_eq:
     @return:
@@ -577,21 +610,57 @@ def acc_mix_diff_cycle_delegate(request, create_lock_mix_amt_unlock_eq):
 
 
 @pytest.fixture()
+def lock_mix_diff_cycle_delegate(create_lock_mix_amt_unlock_eq):
+    """
+    构造锁定期 锁仓金额委托在生效期 自由金额委托在犹豫期
+    @param create_lock_mix_amt_unlock_eq:
+    @Desc:
+        - 解锁周期相同时会优先使用锁仓金额委托, 1.锁仓金额生效期 2.自由金额犹豫期
+        * 若想两种金额类型都在生效期 使用fixture: lock_mix_amt_unlock_eq_delegate wait_settlement=True
+    """
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+
+    logger.info(f'使用锁定期 锁仓金额委托 1000')
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+    wait_settlement(normal_aide0)
+
+    logger.info(f"使用锁定期 自由金额委托 1000")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+
+@pytest.fixture()
+def lock_mix_diff_cycle_delegate_free_valid(create_lock_mix_amt_free_unlock_long):
+    """
+    构造锁定期 锁仓金额委托在犹豫期 自由金额委托在生效期
+    @param create_lock_mix_amt_free_unlock_long:
+    @Desc:
+        - 自由金额解锁周期更长优先使用自由金额, 1.自由金额生效期 2.锁仓金额犹豫期
+        * 若想两种金额类型都在生效期 使用fixture: lock_mix_amt_unlock_eq_delegate wait_settlement=True
+    """
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+
+    logger.info(f'使用锁定期 自由金额委托 1000')
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+    wait_settlement(normal_aide0)
+
+    logger.info(f"使用锁定期 锁仓金额委托 1000")
+    assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 3,
+                                          private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+
+@pytest.fixture()
 def acc_lock_mix_diff_cycle_del(request, create_lock_mix_amt_unlock_eq):
     """
-    适用场景:
+    适用场景:(除 # 锁定期自由金额在生效期的场景 需要使用 acc_lock_mix_diff_cycle_del_free_valid)
     - 自由金额 犹豫期  /  锁仓金额 生效期 (账户)
         - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[restr_wait],"Lock"[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[restr_wait],"Lock"[free_wait]}
+        # 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[restr_wait],"Lock"[free_wait]}
     - 自由金额 生效期  /  锁仓金额 犹豫期 (账户)
         - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[free_wait],"Lock"[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[free_wait],"Lock"[free_wait]}
-    - 自由金额 犹豫期  /  锁仓金额 生效期 (锁定期)
-        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[restr_wait],"Acc":[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[restr_wait],"Acc":[free_wait]}
-    - 自由金额 生效期  /  锁仓金额 犹豫期 (锁定期)
-        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[free_wait],"Acc":[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[free_wait],"Acc":[free_wait]}
+        # 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[free_wait],"Lock"[free_wait]}
 
     @request.param:
         示例： init_data = {"Acc": {"restr_wait": True}, "Lock": {"restr_wait": True}}
@@ -640,26 +709,14 @@ def acc_lock_mix_diff_cycle_del(request, create_lock_mix_amt_unlock_eq):
 
 
 @pytest.fixture()
-def acc_lock_mix_diff_cycle_del_free_first(request, create_lock_mix_amt_free_unlock_long):
+def acc_lock_mix_diff_cycle_del_free_valid(request, create_lock_mix_amt_free_unlock_long):
     """
     适用场景:
-    - 自由金额 犹豫期  /  锁仓金额 生效期 (账户)
-        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[restr_wait],"Lock"[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[restr_wait],"Lock"[free_wait]}
-    - 自由金额 生效期  /  锁仓金额 犹豫期 (账户)
-        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Acc":[free_wait],"Lock"[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Acc":[free_wait],"Lock"[free_wait]}
-    - 自由金额 犹豫期  /  锁仓金额 生效期 (锁定期)
-        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[restr_wait],"Acc":[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[restr_wait],"Acc":[free_wait]}
-    - 自由金额 生效期  /  锁仓金额 犹豫期 (锁定期)
-        - 自由金额 犹豫期 / 锁仓金额 生效期  {"Lock"[free_wait],"Acc":[restr_wait]}
-        - 自由金额 生效期 / 锁仓金额 犹豫期  {"Lock"[free_wait],"Acc":[free_wait]}
-
+    - 锁定期自由金额 生效期 / 锁仓金额 犹豫期
+        - {"Acc":[restr_wait],"Lock"[free_wait]}
+        - {"Acc":[free_wait],"Lock"[free_wait]}
     @request.param:
-        示例： init_data = {"Acc": {"restr_wait": True}, "Lock": {"restr_wait": True}}
-              init_data = {"Lock": {"free_wait": True}, "Acc": {"free_wait": True}}
-              setup_data_02 = [{"Acc": {"restr_wait": True}, "Lock": {"free_wait": True}}]
+        示例： init_data = {"Acc": {"restr_wait": True}, "Lock": {"free_wait": True}}
     """
     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
     req_param = request.param
