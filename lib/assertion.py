@@ -29,10 +29,11 @@ class Assertion:
         """验证委托锁定期 锁定中的金额"""
         lock_info = PF.p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)
         assert len(lock_info['Locks']) == len(expect_data), f"'Locks':{lock_info['Locks']}, 'Expect': {expect_data}"
-        set_data = set()
-        for i in lock_info['Locks']:
-            set_data.add((i['Epoch'], i['Released'], i['RestrictingPlan']))
-        assert set_data == expect_data, f"set_data: {set_data} != expect_data: {expect_data}"
+        if len(expect_data) != 0:
+            set_data = set()
+            for i in lock_info['Locks']:
+                set_data.add((i['Epoch'], i['Released'], i['RestrictingPlan']))
+            assert set_data == expect_data, f"set_data: {set_data} != expect_data: {expect_data}"
 
     @classmethod
     def del_lock_release_money(cls, normal_aide0, normal_aide0_nt, expect_data):

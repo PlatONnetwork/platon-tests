@@ -101,6 +101,37 @@ def wait_consensus_assert_stop_node_status(run_aide, stop_aide, del_pk, wait_num
     return punishment_consensus_num
 
 
+def test_ghost_bug_001(normal_aide):
+    """赎回质押后再次进行质押"""
+    sta_addr, sta_pk = generate_account(normal_aide, BD.staking_limit * 5)
+    assert normal_aide.staking.create_staking(amount=BD.staking_limit * 2, benefit_address=sta_addr,
+                                              private_key=sta_pk)['code'] == 0
+    wait_settlement(normal_aide)
+    logger.info(f"1: {get_pledge_list(normal_aide.staking.get_validator_list)}")
+    logger.info(f"2: {get_pledge_list(normal_aide.staking.get_verifier_list)}")
+    logger.info(f"3: {get_pledge_list(normal_aide.staking.get_candidate_list)}")
+
+    assert normal_aide.staking.withdrew_staking(private_key=sta_pk)['code'] == 0
+
+    assert PF.p_get_candidate_info(normal_aide, normal_aide).Status == 33
+
+    wait_settlement(normal_aide, 2)
+
+    assert PF.p_get_candidate_info(normal_aide, normal_aide) is None
+    logger.info(f"1: {get_pledge_list(normal_aide.staking.get_validator_list)}")
+    logger.info(f"2: {get_pledge_list(normal_aide.staking.get_verifier_list)}")
+    logger.info(f"3: {get_pledge_list(normal_aide.staking.get_candidate_list)}")
+    # 幽灵bug 测试过程中有次质押数据返回失败,但是 get_candidate_list 有节点信息
+    res = normal_aide.staking.create_staking(amount=BD.staking_limit * 2, benefit_address=sta_addr,
+                                             private_key=sta_pk)
+    logger.info(f"再次质押返回数据: {res}")
+
+    logger.info(f"1: {get_pledge_list(normal_aide.staking.get_validator_list)}")
+    logger.info(f"2: {get_pledge_list(normal_aide.staking.get_verifier_list)}")
+    logger.info(f"3: {get_pledge_list(normal_aide.staking.get_candidate_list)}")
+    pass
+
+
 class TestDelegateLockOneAccToManyNode:
     """ 测试单账户-多节点场景 """
 
@@ -945,8 +976,9 @@ class TestDelegateLockNodeException:
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
     def test_node_withdrew_staking(self, create_lock_free_amt):
         """
-        测试节点状态异常(主动赎回质押金额) 使用锁定期金额 自由金额进行委托
-        - 锁定期无锁定金额 有释放金额 进行委托
+        测试节点状态异常(主动赎回质押金额)
+        - 使用锁定期金额 自由金额进行委托
+        - 锁定期无锁定金额 有释放金额 进行委托  ->  fail
         """
         logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
         normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, _ = create_lock_free_amt
@@ -2539,32 +2571,102 @@ class TestLockFreeValidRestrHesitation(TestLockMixDiffCycle):
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data4)
 
 
-def test_ghost_bug_001(normal_aide):
-    """赎回质押后再次进行质押"""
-    sta_addr, sta_pk = generate_account(normal_aide, BD.staking_limit * 5)
-    assert normal_aide.staking.create_staking(amount=BD.staking_limit * 2, benefit_address=sta_addr,
-                                              private_key=sta_pk)['code'] == 0
-    wait_settlement(normal_aide)
-    logger.info(f"1: {get_pledge_list(normal_aide.staking.get_validator_list)}")
-    logger.info(f"2: {get_pledge_list(normal_aide.staking.get_verifier_list)}")
-    logger.info(f"3: {get_pledge_list(normal_aide.staking.get_candidate_list)}")
+class TestRedeemDelegate:
+    """测试提取解锁委托"""
 
-    assert normal_aide.staking.withdrew_staking(private_key=sta_pk)['code'] == 0
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
+    def test_redeem_delegate_basics(self, create_lock_mix_amt_free_unlock_long):
+        """
+        正向用例
+        - 提取到期 锁定金额
+        - 解锁周期不同，分别多次提取
+        - 提取多个节点释放的锁定金额
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+        expect_data = {(3, 0, BD.von_k), (4, BD.von_k, 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
+        Assertion.del_locks_money(normal_aide1, normal_aide1_nt, expect_data)
 
-    assert PF.p_get_candidate_info(normal_aide, normal_aide).Status == 33
+        logger.info(f"使用账户B1自由金额 分别委托A/B节点 limit")
+        assert normal_aide0.delegate.delegate(amount=BD.delegate_limit, balance_type=0,
+                                              private_key=normal_aide1_nt.del_pk)['code'] == 0
+        assert normal_aide0.delegate.delegate(amount=BD.delegate_limit, balance_type=0, node_id=normal_aide1_nt.node_id,
+                                              private_key=normal_aide1_nt.del_pk)['code'] == 0
 
-    wait_settlement(normal_aide, 2)
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=1, diff_restr=True)
+        logger.info(f"账户A1 已领取 释放的锁仓金额")
+        assert abs(red_acc_amt - acc_amt_before) < BD.von_min
+        expect_data2 = {'Pledge': {"old_value": BD.von_k, "new_value": 0}}
+        Assertion.assert_restr_amt(restr_before, restr_later, expect_data2)
+        logger.info(f"账户B1 锁定期信息")
+        Assertion.del_locks_money(normal_aide1, normal_aide1_nt, {(4, BD.von_k, 0)})
+        Assertion.del_lock_release_money(normal_aide1, normal_aide1_nt, {"Released": 0, "RestrictingPlan": BD.von_k})
 
-    assert PF.p_get_candidate_info(normal_aide, normal_aide) is None
-    logger.info(f"1: {get_pledge_list(normal_aide.staking.get_validator_list)}")
-    logger.info(f"2: {get_pledge_list(normal_aide.staking.get_verifier_list)}")
-    logger.info(f"3: {get_pledge_list(normal_aide.staking.get_candidate_list)}")
-    # 幽灵bug 测试过程中有次质押数据返回失败,但是 get_candidate_list 有节点信息
-    res = normal_aide.staking.create_staking(amount=BD.staking_limit * 2, benefit_address=sta_addr,
-                                             private_key=sta_pk)
-    logger.info(f"再次质押返回数据: {res}")
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=1, diff_restr=True)
+        logger.info(f"账户A1 已领取 锁定期释放的自由金额")
+        assert BD.delegate_amount - abs(red_acc_amt - acc_amt_before) < BD.von_min
+        Assertion.assert_restr_amt(restr_before, restr_later, {})
+        logger.info(f"账户B1 锁定期信息")
+        Assertion.del_locks_money(normal_aide1, normal_aide1_nt, {})
+        expect_data3 = {"Released": BD.von_k, "RestrictingPlan": BD.von_k}
+        Assertion.del_lock_release_money(normal_aide1, normal_aide1_nt, expect_data3)
 
-    logger.info(f"1: {get_pledge_list(normal_aide.staking.get_validator_list)}")
-    logger.info(f"2: {get_pledge_list(normal_aide.staking.get_verifier_list)}")
-    logger.info(f"3: {get_pledge_list(normal_aide.staking.get_candidate_list)}")
-    pass
+        logger.info(f"账户A1 取消委托 并进入冻结期")
+        assert normal_aide0.delegate.withdrew_delegate(amount=BD.delegate_limit,
+                                                       staking_block_identifier=normal_aide0_nt.StakingBlockNum,
+                                                       private_key=normal_aide1_nt.del_pk)['code'] == 0
+        assert normal_aide0.delegate.withdrew_delegate(amount=BD.delegate_limit,
+                                                       staking_block_identifier=normal_aide1_nt.StakingBlockNum,
+                                                       node_id=normal_aide1_nt.node_id,
+                                                       private_key=normal_aide1_nt.del_pk)['code'] == 0
+        logger.info(f"领取账户B1 已释放金额")
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide1, normal_aide1_nt, wait_num=2, diff_restr=True)
+        assert (BD.von_k + BD.delegate_limit * 2) - abs(red_acc_amt - acc_amt_before) < BD.von_min
+        expect_data4 = {'Pledge': {"old_value": BD.von_k, "new_value": 0}}
+        Assertion.assert_restr_amt(restr_before, restr_later, expect_data4)
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
+    def test_redeem_delegate_exception(self, create_lock_mix_amt_restr_unlock_long, normal_aides):
+        """
+        节点异常提取已解锁金额
+        - 节点物理状态异常
+        - 节点链上状态异常 零出块后大于质押金额
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_restr_unlock_long
+        normal_aide2 = normal_aides[-1]
+        expect_data = {(3, BD.von_k, 0), (4, 0, BD.von_k)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
+        Assertion.del_locks_money(normal_aide1, normal_aide1_nt, expect_data)
+
+        normal_aide1.node.stop()
+
+        wait_settlement(normal_aide2)
+
+        acc_amt_before = normal_aide0.platon.get_balance(normal_aide1_nt.del_addr)
+        logger.info(f"物理状态异常领取已释放锁定金 自由金额")
+        assert normal_aide0.delegate.redeem_delegate(private_key=normal_aide1_nt.del_pk)['code'] == 0
+        red_acc_amt = normal_aide0.platon.get_balance(normal_aide1_nt.del_addr)
+        assert BD.von_k - abs(red_acc_amt - acc_amt_before) < BD.von_min
+
+        normal_aide1.node.start()
+        normal_aide0.node.stop()
+
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide2, normal_aide0_nt, wait_num=1, diff_restr=True)
+
+        candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
+        assert candidate_info.Status == 3
+        logger.info(f"链上状态异常领取已释放锁定金 自由金额 + 锁仓金额")
+        assert BD.von_k - abs(red_acc_amt - acc_amt_before) < BD.von_min
+
+        expect_data2 = {'Pledge': {"old_value": BD.von_k, "new_value": 0}}
+        Assertion.assert_restr_amt(restr_before, restr_later, expect_data2)
+
+
