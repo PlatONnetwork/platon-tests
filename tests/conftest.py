@@ -541,7 +541,7 @@ def many_cycle_restr_loop_redeem_delegate(choose_undelegate_freeze_duration, nor
     logger.info(f"{normal_aide0.node}: 创建质押和 混合金额")
     normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
     logger.info(f"为其他节点创建质押和委托")
-    _ = [create_sta_del(normal_aides[i], ) for i in range(1, 4)]
+    other_nt_list = [create_sta_del(normal_aides[i], ) for i in range(1, 4)]
 
     wait_settlement(normal_aide0)
     PF.p_get_delegate_info(normal_aide0, normal_aide0_namedtuple.del_addr, normal_aide0_namedtuple)
@@ -550,7 +550,7 @@ def many_cycle_restr_loop_redeem_delegate(choose_undelegate_freeze_duration, nor
     assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
                                                    staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
                                                    amount=BaseData.delegate_amount * 2, )['code'] == 0
-    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aides
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, other_nt_list
 
 
 @pytest.fixture()

@@ -2738,10 +2738,10 @@ class TestRedeemDelegate:
         pass
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
-    def test_many_cycle_restr_loop_redeem_delegate(self, many_cycle_restr_loop_redeem_delegate):
+    def test_many_cycle_restr_loop_redeem_delegate(self, many_cycle_restr_loop_redeem_delegate, normal_aides):
         """
         锁定期混合金额 锁仓金额 在多个周期释放并嵌套委托(多节点), 领取已释放的金额
-        @param create_lock_mix_amt_many_cycle_restr:
+        @param many_cycle_restr_loop_redeem_delegate:
         @Desc:
             - 锁定期金额未解锁 和 锁定期金额已解锁但未领取, 锁仓计划的变化如下
               * {'balance': 1k, 'debt': ++100(amt), 'plans': --1(len), 'Pledge': 1k}
@@ -2751,7 +2751,7 @@ class TestRedeemDelegate:
               * debt 的钱回账户
         """
         logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
-        normal_aide0, normal_aide1, normal_aide0_nt, normal_aides = many_cycle_restr_loop_redeem_delegate
+        normal_aide0, normal_aide1, normal_aide0_nt, other_nt_list = many_cycle_restr_loop_redeem_delegate
 
         logger.info(f"锁定期金额未解锁")
         acc_amt_before, red_acc_amt, restr_before, restr_later = \
@@ -2793,6 +2793,7 @@ class TestRedeemDelegate:
         logger.info(f"赎回 节点B、C、D 的锁仓金额委托, 并进入锁定期")
         for i in range(1, 4):
             assert normal_aide0.delegate.withdrew_delegate(amount=del_amt,
+                                                           staking_block_identifier=other_nt_list[i-1].StakingBlockNum,
                                                            node_id=normal_aides[i].node.node_id,
                                                            private_key=normal_aide0_nt.del_pk, )['code'] == 0
 
