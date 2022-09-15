@@ -480,6 +480,80 @@ def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, no
 
 
 @pytest.fixture()
+def many_cycle_restr_redeem_delegate(request, choose_undelegate_freeze_duration, normal_aides):
+    """
+    创建锁定期 混合金额 锁仓金额和自由金额 多周期的锁仓计划
+    """
+    req_param = request.param
+    chain, new_gen_file = choose_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    lock_amt = BaseData.delegate_limit * 10
+    assert lock_amt * 10 == lockup_amount
+    plan = [{'Epoch': i, 'Amount': lock_amt} for i in range(1, 11)]
+
+    logger.info(f"{normal_aide0.node}: 创建质押和 混合金额")
+    normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
+    if req_param.get("ManyAcc"):
+        logger.info(f"{normal_aide1.node}: 创建质押和 混合金额")
+        normal_aide1_namedtuple = create_sta_del(normal_aide1, plan, mix=True)
+    else:
+        logger.info(f"{normal_aide1.node}: 创建质押和 自由金额")
+        normal_aide1_namedtuple = create_sta_del(normal_aide1, )
+
+    wait_settlement(normal_aide0)
+    PF.p_get_delegate_info(normal_aide0, normal_aide0_namedtuple.del_addr, normal_aide0_namedtuple)
+
+    logger.info(f"{normal_aide0.node}: 赎回锁仓+自由金额 进入冻结期")
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=BaseData.delegate_amount * 2, )['code'] == 0
+    if req_param.get("ManyAcc"):
+        logger.info(f"{normal_aide1.node}: 赎回锁仓+自由金额 进入冻结期")
+        assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide1_namedtuple.del_pk,
+                                                       node_id=normal_aide1.node.node_id,
+                                                       staking_block_identifier=normal_aide1_namedtuple.StakingBlockNum,
+                                                       amount=BaseData.delegate_amount * 2, )['code'] == 0
+
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple
+
+
+@pytest.fixture()
+def many_cycle_restr_loop_redeem_delegate(choose_undelegate_freeze_duration, normal_aides):
+    """
+    创建锁定期 混合金额 锁仓金额和自由金额 多周期的锁仓计划并使用锁仓金额嵌套委托多节点
+    """
+    chain, new_gen_file = choose_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    lock_amt = BaseData.delegate_limit * 10
+    assert lock_amt * 10 == lockup_amount
+    plan = [{'Epoch': i, 'Amount': lock_amt} for i in range(1, 11)]
+
+    logger.info(f"{normal_aide0.node}: 创建质押和 混合金额")
+    normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
+    logger.info(f"为其他节点创建质押和委托")
+    _ = [create_sta_del(normal_aides[i], ) for i in range(1, 4)]
+
+    wait_settlement(normal_aide0)
+    PF.p_get_delegate_info(normal_aide0, normal_aide0_namedtuple.del_addr, normal_aide0_namedtuple)
+
+    logger.info(f"{normal_aide0.node}: 赎回锁仓+自由金额 进入冻结期")
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=BaseData.delegate_amount * 2, )['code'] == 0
+    yield normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aides
+
+
+@pytest.fixture()
 def lock_mix_amt_unlock_eq_delegate(request, create_lock_mix_amt_unlock_eq):
     """
     使用锁定期混合金额进行委托

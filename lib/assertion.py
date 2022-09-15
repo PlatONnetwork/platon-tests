@@ -63,6 +63,9 @@ class Assertion:
             for item in res['values_changed'].items():
                 title = item[0].split("'")[1]
                 diff_info[title] = item[1]
+        # 若plans有变化则 单独处理plans,只返回计划长度
+        if diff_info.get("plans"):
+            diff_info['plans'] = {"old_value_len": len(before['plans']), "new_value_len": len(last['plans'])}
         logger.info(f"diff_restr_info: {diff_info}")
         return diff_info
 
