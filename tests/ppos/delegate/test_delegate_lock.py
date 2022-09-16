@@ -2792,8 +2792,9 @@ class TestRedeemDelegate:
 
         logger.info(f"赎回 节点B、C、D 的锁仓金额委托, 并进入锁定期")
         for i in range(1, 4):
+            aide_nt_BlockNum = other_nt_list[i - 1].StakingBlockNum
             assert normal_aide0.delegate.withdrew_delegate(amount=del_amt,
-                                                           staking_block_identifier=other_nt_list[i-1].StakingBlockNum,
+                                                           staking_block_identifier=aide_nt_BlockNum,
                                                            node_id=normal_aides[i].node.node_id,
                                                            private_key=normal_aide0_nt.del_pk, )['code'] == 0
 
@@ -2816,3 +2817,377 @@ class TestRedeemDelegate:
         expect_data5 = {'balance': {"old_value": balance, "new_value": balance - BD.delegate_limit * 10},
                         'plans': {"old_value_len": 3, "new_value_len": 2}}
         Assertion.assert_restr_amt(restr_later, restr_info, expect_data5)
+
+
+class TestLoopDelegate:
+    """测试循环委托"""
+
+    @staticmethod
+    def _cycle_2_block_161_320(del_amt, loop_delegate):
+        """
+        @Desc:
+            - 锁仓计划合并会先填平欠释放金额
+            - 锁定期金额委托犹豫期 赎回
+            - 锁定期金额一对多委托
+            - 账户自由金额+锁仓金额 一对多委托,并存在未委托完的锁仓金额
+        """
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        assert normal_aide0.platon.block_number > 160
+
+        logger.info(f"查询锁定期数据信息")
+        lock_info_expect_data = {(3, BD.von_k, BD.von_k)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_info_expect_data)
+
+        logger.info(f"查询锁仓计划信息")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_info_expect_data = {'plans': {"old_value_len": 10, "new_value_len": 9},
+                                  'debt': {"old_value": 0, "new_value": BD.delegate_limit * 10}, }
+        Assertion.assert_restr_amt(init_restr_info, restr_info, restr_info_expect_data)
+
+        logger.info(f"锁仓计划合并 验证账户余额")
+        acc_amt_before = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                    private_key=normal_aide0_nt.del_pk)['code'] == 0
+        acc_amt_last = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert acc_amt_last - acc_amt_before - del_amt[100] < BD.von_min
+
+        logger.info(f"查节点委托信息")
+        assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
+
+        logger.info(f"查询提取锁定金前后 锁仓计划 和 账户余额")
+        acc_amt_before, red_acc_amt, _, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, diff_restr=True)
+        assert abs(red_acc_amt - acc_amt_before) < BD.von_min
+        restr_expect_data = {'balance': {"old_value": BD.von_k, "new_value": BD.von_k * 2 - BD.delegate_limit * 10},
+                             'debt': {"old_value": BD.delegate_limit * 10, "new_value": 0},
+                             'plans': {'old_value_len': 9, 'new_value_len': 10}}
+        Assertion.assert_restr_amt(restr_info, restr_later, restr_expect_data)
+
+        logger.info(f"锁定期金额委托1000 即用锁仓金额在委托")
+        assert normal_aide0.delegate.delegate(BD.von_k, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
+        logger.info(f"赎回500 并验证 lock_info")
+        assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[500],
+                                                       staking_block_identifier=normal_aide0_nt.StakingBlockNum,
+                                                       node_id=normal_aide0_nt.node_id,
+                                                       private_key=normal_aide0_nt.del_pk, )['code'] == 0
+        lock_info_expect_data = {(3, BD.von_k, del_amt[500])}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_info_expect_data)
+
+        logger.info(f"锁定期锁仓金额剩下500 自由金额1000 一对多分别委托 ABCD * 300 = 1200 自由金额还剩下300")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            assert normal_aide0.delegate.delegate(del_amt[300], 3, node_id=node_id,
+                                                  private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+            delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+            if i == 0:
+                logger.info("A节点 锁定金 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0, "LockReleasedHes": 0,
+                                             "LockRestrictingPlanHes": del_amt[500] + del_amt[300]}
+            elif i == 1:
+                logger.info("B节点 锁定金 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[100],
+                                             "LockRestrictingPlanHes": del_amt[200]}
+            else:
+                logger.info("CD节点 锁定金 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[300], "LockRestrictingPlanHes": 0}
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info(f"账户金额分别 委托 ABCD 自由金额1k 锁仓金额200 第二次锁仓计划中还有1k-100=900-800=剩下100未被委托")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            assert normal_aide0.delegate.delegate(BD.von_k, 0, node_id=node_id,
+                                                  private_key=normal_aide0_nt.del_pk)['code'] == 0
+            assert normal_aide0.delegate.delegate(del_amt[200], 1, node_id=node_id,
+                                                  private_key=normal_aide0_nt.del_pk)['code'] == 0
+            delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+            if i == 0:
+                logger.info("A节点 锁定金+账户 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                             "ReleasedHes": BD.von_k, "RestrictingPlanHes": del_amt[200],
+                                             "LockReleasedHes": 0,
+                                             "LockRestrictingPlanHes": del_amt[500] + del_amt[300]}
+            elif i == 1:
+                logger.info("B节点 锁定金+账户 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                             "ReleasedHes": BD.von_k, "RestrictingPlanHes": del_amt[200],
+                                             "LockReleasedHes": del_amt[100],
+                                             "LockRestrictingPlanHes": del_amt[200]}
+            else:
+                logger.info("CD节点 锁定金+账户 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                             "ReleasedHes": BD.von_k, "RestrictingPlanHes": del_amt[200],
+                                             "LockReleasedHes": del_amt[300], "LockRestrictingPlanHes": 0}
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        restr_later_2 = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        expect_data2 = {'Pledge': {"old_value": BD.von_k, "new_value": BD.von_k + del_amt[800]}}
+        Assertion.assert_restr_amt(restr_later, restr_later_2, expect_data2)
+
+        logger.info(f"账户自由金额委托4k -> 账户余额减4k")
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert red_acc_amt - acc_amt - BD.von_k * 4 < BD.von_min
+
+        assert normal_aide0.platon.block_number < 160 * 2
+        return acc_amt, restr_later_2
+
+    @staticmethod
+    def _cycle_3_block_321_480(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        """
+        @Desc:
+            - 锁仓计划释放 200 锁仓中未委托金额100 欠释放金额100
+            - 无释放金额 提取锁定金
+            - 验证所有委托状态 进入生效期
+            - 赎回生效期金额 进入 锁定期
+            - 使用锁定金额一对多委托 并验证 优先使用解锁周期长的金额,然后再使用先解锁的金额
+            - 第三次创建锁仓 验证锁仓合并 1k - 欠释放100 可支配锁仓900 并委托500,未委托400
+            - 使用账户自由金额一对多委托
+            - 在犹豫期一对多赎回(账户委托 + 锁定期委托)
+                * A节点 1100 = 1000自由金额 + 100锁仓金额 / 第三次锁仓 委托400,未委托500
+        """
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        Released, RestrictingPlan = BD.von_k + del_amt[1100], del_amt[200] + del_amt[100]
+        assert normal_aide0.platon.block_number > 160 * 2
+
+        logger.info(f"cycle3 验证锁仓计划 第二次锁仓 (1000 - 100 - 200 * 4)=100未被委托  释放200 账户余额+100 欠释放字段+100")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {
+            'balance': {"old_value": BD.von_k * 2 - del_amt[100], "new_value": BD.von_k * 2 - del_amt[200]},
+            'debt': {"old_value": 0, "new_value": del_amt[100]},
+            'plans': {'old_value_len': 10, 'new_value_len': 9}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert abs(acc_amt - ago_acc_amt - del_amt[100]) < BD.von_min
+        logger.info(f"锁定期无释放金额去领取 - 只扣手续费")
+        acc_amt_before, red_acc_amt, = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, )
+        assert red_acc_amt - acc_amt_before < BD.von_min
+
+        logger.info(f"验证锁定期 剩下300自由金额")
+        lock_info_expect_data = {(3, del_amt[300], 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_info_expect_data)
+
+        logger.info(f"验证所有节点委托信息")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+            if i == 0:
+                logger.info("A节点 委托数据")
+                delegate_info_expect_data = {"Released": BD.von_k, "RestrictingPlan": BD.von_k,
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+            elif i == 1:
+                logger.info("B节点 委托数据")
+                delegate_info_expect_data = {"Released": BD.von_k + del_amt[100], "RestrictingPlan": del_amt[400],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+            else:
+                logger.info("CD节点 委托数据")
+                delegate_info_expect_data = {"Released": BD.von_k + del_amt[300], "RestrictingPlan": del_amt[200],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info(f'赎回委托 都在生效期从自由金额开始赎回 ABCD 赎回 1200')
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[1200],
+                                                           staking_block_identifier=aide_nt.StakingBlockNum,
+                                                           node_id=node_id,
+                                                           private_key=normal_aide0_nt.del_pk, )['code'] == 0
+            delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+            if i == 0:
+                logger.info("A节点 赎回委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[800],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+                lock_expect_data = {(3, del_amt[300], 0), (4, BD.von_k, del_amt[200])}
+            elif i == 1:
+                logger.info("B节点 赎回委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[300],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+                this_lock_data = {(3, del_amt[300], 0), (4, del_amt[1100], del_amt[100])}
+                lock_expect_data = {(3, del_amt[300], 0), (4, Released, RestrictingPlan)}
+            else:
+                logger.info("CD节点 赎回委托数据")
+                delegate_info_expect_data = {"Released": del_amt[100], "RestrictingPlan": del_amt[200],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+                this_lock_data = {(3, del_amt[300], 0), (4, del_amt[1200], 0)}
+
+                if i == 2:
+                    lock_expect_data = {(3, del_amt[300], 0),
+                                        (4, Released + del_amt[1200], RestrictingPlan)}
+                else:
+                    lock_expect_data = {(3, del_amt[300], 0),
+                                        (4, Released + del_amt[1200] * 2, RestrictingPlan)}
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+            Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"使用锁定金(3, 300, 0),(4, 4500, 300)委托 总5000  ABCD 1250 会先使用冻结周期数长的锁定金额 剩(3, 100, 0)")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            assert normal_aide0.delegate.delegate(del_amt[1250], 3, node_id=node_id,
+                                                  private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+            delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+            if i == 0:
+                logger.info("锁定金委托A节点 1250 ")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[800],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[950], "LockRestrictingPlanHes": del_amt[300]}
+                lock_expect_data = {(3, del_amt[300], 0),
+                                    (4, Released + del_amt[1200] * 2 - del_amt[950], 0)}
+            elif i == 1:
+                logger.info("锁定金委托B节点 1250")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[300],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[1250], "LockRestrictingPlanHes": 0}
+                lock_expect_data = {(3, del_amt[300], 0),
+                                    (4, Released + del_amt[1200] * 2 - del_amt[950] - del_amt[1250], 0)}
+            else:
+                logger.info("锁定金委托CD节点 1250")
+                delegate_info_expect_data = {"Released": del_amt[100], "RestrictingPlan": del_amt[200],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[1250], "LockRestrictingPlanHes": 0}
+
+                if i == 2:
+                    lock_expect_data = {(3, del_amt[300], 0),
+                                        (4, Released + del_amt[1200] * 2 - del_amt[950] - del_amt[1250] * 2, 0)}
+                else:
+                    lock_expect_data = {(3, del_amt[100], 0)}
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+            Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"第三次创建锁仓计划合并(1000-欠释放100=900) 验证账户余额")
+        acc_amt_before = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                    private_key=normal_aide0_nt.del_pk)['code'] == 0
+        acc_amt_last = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        restr_info_1 = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[1800], "new_value": del_amt[1800] + BD.von_k - del_amt[100]},
+            'debt': {"old_value": del_amt[100], "new_value": 0},
+            'plans': {'old_value_len': 9, 'new_value_len': 10}, }
+        Assertion.assert_restr_amt(restr_info, restr_info_1, restr_expect_data)
+        assert acc_amt_last - acc_amt_before - del_amt[100] < BD.von_min
+
+        logger.info(f"使用账户锁仓金额委托 500 剩余未委托金额900-500=400")
+        assert normal_aide0.delegate.delegate(del_amt[500], 1, private_key=normal_aide0_nt.del_pk)['code'] == 0
+        restr_info_2 = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        expect_data2 = {'Pledge': {"old_value": del_amt[1800], "new_value": del_amt[2300]}}
+        Assertion.assert_restr_amt(restr_info_1, restr_info_2, expect_data2)
+
+        logger.info(f"账户金额分别 委托 ABCD 自由金额1k")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            assert normal_aide0.delegate.delegate(BD.von_k, 0, node_id=node_id,
+                                                  private_key=normal_aide0_nt.del_pk)['code'] == 0
+            delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+            if i == 0:
+                logger.info("A节点 锁定金+账户 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[800],
+                                             "ReleasedHes": del_amt[1000], "RestrictingPlanHes": del_amt[500],
+                                             "LockReleasedHes": del_amt[950], "LockRestrictingPlanHes": del_amt[300]}
+            elif i == 1:
+                logger.info("B节点 锁定金+账户 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[300],
+                                             "ReleasedHes": del_amt[1000], "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[1250], "LockRestrictingPlanHes": 0}
+            else:
+                logger.info("CD节点 锁定金+账户 委托数据")
+                delegate_info_expect_data = {"Released": del_amt[100], "RestrictingPlan": del_amt[200],
+                                             "ReleasedHes": del_amt[1000], "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[1250], "LockRestrictingPlanHes": 0}
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info(f"账户和锁定金委托之后 验证在犹豫期赎回 A1100 B1500 C2000 D2500")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+
+            if i == 0:
+                logger.info("A节点 赎回1100委托 犹豫期账户自由金额1000 + 犹豫期账户锁仓金额100")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[1100],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                restr_info_3 = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+                expect_data3 = {'Pledge': {"old_value": del_amt[2300], "new_value": del_amt[2200]}}
+                Assertion.assert_restr_amt(restr_info_2, restr_info_3, expect_data3)
+
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[800],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": del_amt[400],
+                                             "LockReleasedHes": del_amt[950], "LockRestrictingPlanHes": del_amt[300]}
+                lock_expect_data = {(3, del_amt[100], 0)}
+            elif i == 1:
+                logger.info("B节点 赎回1500委托")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[1500],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[300],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[750], "LockRestrictingPlanHes": 0}
+
+                lock_expect_data = {(3, del_amt[100], 0), (4, del_amt[500], 0)}
+
+            elif i == 2:
+                logger.info("C节点 赎回2000委托")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[2000],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+                delegate_info_expect_data = {"Released": del_amt[100], "RestrictingPlan": del_amt[200],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": del_amt[250], "LockRestrictingPlanHes": 0}
+
+                lock_expect_data = {(3, del_amt[100], 0), (4, del_amt[1500], 0)}
+            else:
+                logger.info("D节点 赎回2500委托")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[2500],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[50],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+                lock_expect_data = {(3, del_amt[100], 0),
+                                    (4, del_amt[1500] + del_amt[1250] + del_amt[100], del_amt[150])}
+
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+            Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert acc_amt - acc_amt_last < BD.von_min  # 只扣掉了手续费 4次委托 4次赎回委托
+        restr_info_4 = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        Assertion.assert_restr_amt(restr_info_3, restr_info_4, {})
+
+        assert normal_aide0.platon.block_number < 160 * 3
+        return acc_amt, restr_info_4
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    def test_loop_delegate(self, loop_delegate):
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        all_aide_nt_list.insert(0, normal_aide0_nt)
+        del_amt = {i * 10: BD.delegate_limit * i for i in range(5, 301) if i % 5 == 0}
+
+        ago_acc_amt, ago_restr_info = self._cycle_2_block_161_320(del_amt, loop_delegate)
+
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_3_block_321_480(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        # TODO:
+        #    - 领取已释放的锁定金额
+        #    - 后续周期中保留部分锁定金不用于委托, 并每个结算周期进行提取
+

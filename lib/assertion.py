@@ -47,7 +47,7 @@ class Assertion:
         """delegate_info 包含 expect_data"""
         x = set(delegate_info.items())
         y = set(expect_data.items())
-        assert x.issuperset(y)
+        assert x.issuperset(y), f"delegate_info:{delegate_info}, expect_data:{expect_data}"
 
     @classmethod
     def diff_restr_info(cls, before, last) -> dict:
@@ -72,7 +72,7 @@ class Assertion:
     @classmethod
     def assert_restr_amt(cls, before, last, expect_data):
         diff_info = cls.diff_restr_info(before, last)
-        assert diff_info == expect_data
+        assert diff_info == expect_data, f"diff_info: {diff_info} != expect_data: {expect_data}"
 
 
 if __name__ == '__main__':

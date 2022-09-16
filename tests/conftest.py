@@ -859,3 +859,34 @@ def lock_free_delegate(normal_aide0, normal_aide0_nt):
     logger.info(f"使用锁定期 自由金额委托 delegate_limit * 100")
     assert normal_aide0.delegate.delegate(BaseData.delegate_amount, 3,
                                           private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+
+@pytest.fixture()
+def loop_delegate(choose_undelegate_freeze_duration, normal_aides):
+    """
+    创建锁定期/账户 混合金额 多周期的锁仓计划并使用锁仓金额嵌套委托多节点
+    """
+    chain, new_gen_file = choose_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+
+    lockup_amount = BaseData.delegate_amount  # platon/10 * 100
+    lock_amt = BaseData.delegate_limit * 10
+    assert lock_amt * 10 == lockup_amount
+    plan = [{'Epoch': i, 'Amount': lock_amt} for i in range(1, 11)]
+
+    logger.info(f"{normal_aide0.node}: 创建质押和 混合金额")
+    normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
+    logger.info(f"为其他节点创建质押和委托")
+    other_nt_list = [create_sta_del(normal_aides[i], ) for i in range(1, 4)]
+    init_restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_namedtuple)
+
+    wait_settlement(normal_aide0)
+
+    logger.info(f"{normal_aide0.node}: 赎回锁仓+自由金额 进入冻结期")
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_namedtuple.del_pk,
+                                                   staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum,
+                                                   amount=BaseData.delegate_amount * 2, )['code'] == 0
+    yield normal_aide0, normal_aide0_namedtuple, other_nt_list, plan, init_restr_info
