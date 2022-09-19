@@ -3012,14 +3012,14 @@ class TestLoopDelegate:
                 delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[300],
                                              "ReleasedHes": 0, "RestrictingPlanHes": 0,
                                              "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
-                this_lock_data = {(3, del_amt[300], 0), (4, del_amt[1100], del_amt[100])}
+                __this_lock_data = {(3, del_amt[300], 0), (4, del_amt[1100], del_amt[100])}
                 lock_expect_data = {(3, del_amt[300], 0), (4, Released, RestrictingPlan)}
             else:
                 logger.info("CD节点 赎回委托数据")
                 delegate_info_expect_data = {"Released": del_amt[100], "RestrictingPlan": del_amt[200],
                                              "ReleasedHes": 0, "RestrictingPlanHes": 0,
                                              "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
-                this_lock_data = {(3, del_amt[300], 0), (4, del_amt[1200], 0)}
+                __this_lock_data = {(3, del_amt[300], 0), (4, del_amt[1200], 0)}
 
                 if i == 2:
                     lock_expect_data = {(3, del_amt[300], 0),
@@ -3176,18 +3176,488 @@ class TestLoopDelegate:
         assert normal_aide0.platon.block_number < 160 * 3
         return acc_amt, restr_info_4
 
+    @staticmethod
+    def _cycle_4_block_481_640(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+
+        assert normal_aide0.platon.block_number > 160 * 3
+
+        logger.info(f"cycle4 验证锁仓计划 第三次锁仓 (1000 - 100 - 400)=500未被委托  释放300 账户余额+300 欠释放字段+0")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[2700], "new_value": del_amt[2400]},
+            'plans': {'old_value_len': 10, 'new_value_len': 9}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert abs(acc_amt - ago_acc_amt - del_amt[300]) < BD.von_min
+
+        logger.info(f"验证锁定期 已释放金额: 自由金额100 无锁仓金额")
+        lock_info_release_data = {'Released': del_amt[100], 'RestrictingPlan': 0}
+        Assertion.del_lock_release_money(normal_aide0, normal_aide0_nt, lock_info_release_data)
+
+        logger.info(f"提取已释放的锁定期金额 -> 自由金额 100")
+        acc_amt_before, red_acc_amt, = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, )
+        assert red_acc_amt - acc_amt_before - del_amt[100] < BD.von_min
+
+        logger.info(f"验证各节点委托信息")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+            if i == 0:
+                logger.info("A节点 委托数据")
+                delegate_info_expect_data = {"Released": del_amt[950], "RestrictingPlan": del_amt[1500],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+            elif i == 1:
+                logger.info("B节点 委托数据")
+                delegate_info_expect_data = {"Released": del_amt[750], "RestrictingPlan": del_amt[300],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+            elif i == 2:
+                logger.info("C节点 委托数据")
+                delegate_info_expect_data = {"Released": del_amt[350], "RestrictingPlan": del_amt[200],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+            else:
+                logger.info("D节点 委托数据")
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[50],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info(f"赎回委托并重新锁定")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+
+            if i == 0:
+                logger.info("A节点 赎回1600委托 = 生效期自由金额950 + 生效期锁仓金额650")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[1600],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[850],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+                lock_expect_data = {(4, del_amt[2850], del_amt[150]), (5, del_amt[950], del_amt[650])}
+            elif i == 1:
+                logger.info("B节点 赎回500 生效期自由金额500")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[500],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+
+                delegate_info_expect_data = {"Released": del_amt[250], "RestrictingPlan": del_amt[300],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+
+                lock_expect_data = {(4, del_amt[2850], del_amt[150]), (5, del_amt[1450], del_amt[650])}
+            elif i == 2:
+                logger.info("C节点 赎回100 生效期自由金额100")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[100],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+                delegate_info_expect_data = {"Released": del_amt[250], "RestrictingPlan": del_amt[200],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+
+                lock_expect_data = {(4, del_amt[2850], del_amt[150]), (5, del_amt[1550], del_amt[650])}
+            else:
+                logger.info("D节点 赎回10 生效期锁仓金额10")
+                assert normal_aide0.delegate.withdrew_delegate(amount=BD.delegate_limit,
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[50] - BD.delegate_limit,
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+                lock_expect_data = {(4, del_amt[2850], del_amt[150]), (5, del_amt[1550], del_amt[660])}
+
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+            Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"锁定金 委托A节点 2000")
+        assert normal_aide0.delegate.delegate(del_amt[2000], 3,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[850],
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": del_amt[1340], "LockRestrictingPlanHes": del_amt[660]}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        lock_expect_data = {(4, del_amt[2850], del_amt[150]), (5, del_amt[210], 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        assert normal_aide0.platon.block_number < 160 * 4
+        return red_acc_amt, restr_info
+
+    @staticmethod
+    def _cycle_5_block_641_800(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        assert normal_aide0.platon.block_number > 160 * 4
+
+        logger.info(f"cycle5 验证锁仓计划 200未被委托  释放300 账户余额+200 欠释放字段+100")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[2400], "new_value": del_amt[2200]},
+            'debt': {"old_value": 0, "new_value": del_amt[100]},
+            'plans': {'old_value_len': 9, 'new_value_len': 8}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert abs(acc_amt - ago_acc_amt - del_amt[200]) < BD.von_min
+
+        logger.info(f"锁定期数据")
+        lock_expect_data = {(5, del_amt[210], 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+        logger.info(f"锁定期已释放数据")
+        lock_info_release_data = {'Released': del_amt[2850], 'RestrictingPlan': del_amt[150]}
+        Assertion.del_lock_release_money(normal_aide0, normal_aide0_nt, lock_info_release_data)
+
+        logger.info(f"查询A节点委托数据")
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": del_amt[1340], "RestrictingPlan": del_amt[1510],
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info(f"赎回A节点委托信息 2000 = 生效期自由金额1340 + 生效期锁仓金额660")
+        assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[2000],
+                                                       staking_block_identifier=normal_aide0_nt.StakingBlockNum,
+                                                       node_id=normal_aide0_nt.node_id,
+                                                       private_key=normal_aide0_nt.del_pk, )['code'] == 0
+
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[850],
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info(f"赎回冻结金委托后验证锁定期数据")
+        lock_expect_data = {(5, del_amt[210], 0), (6, del_amt[1340], del_amt[660])}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"使用账户自由金额委托 A节点 自由金额100")
+        assert normal_aide0.delegate.delegate(del_amt[100], 0, private_key=normal_aide0_nt.del_pk)['code'] == 0
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[850],
+                                     "ReleasedHes": del_amt[100], "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+        acc_amt_2 = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert del_amt[100] - (acc_amt - acc_amt_2) < BD.von_min
+
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, diff_restr=True)
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[2200], "new_value": del_amt[2100]},
+            'debt': {"old_value": del_amt[100], "new_value": 0},
+            'Pledge': {"old_value": del_amt[2200], "new_value": del_amt[2050]}}
+        Assertion.assert_restr_amt(restr_before, restr_later, restr_expect_data)
+        assert abs(red_acc_amt - acc_amt_before - del_amt[2850] - del_amt[100]) < BD.von_min
+
+        assert normal_aide0.platon.block_number < 160 * 5
+        return red_acc_amt, restr_later
+
+    @staticmethod
+    def _cycle_6_block_801_960(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        assert normal_aide0.platon.block_number > 160 * 5
+
+        logger.info(f"cycle6 验证锁仓计划 释放300 账户余额+0 欠释放字段+300")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[2100], "new_value": del_amt[2050]},
+            'debt': {"old_value": 0, "new_value": del_amt[250]},
+            'plans': {'old_value_len': 8, 'new_value_len': 7}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert abs(acc_amt - ago_acc_amt - del_amt[50]) < BD.von_min
+
+        logger.info(f"验证锁定期已释放金额")
+        lock_expect_data = {(6, del_amt[1340], del_amt[660])}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+        logger.info(f"锁定期已释放数据")
+        lock_info_release_data = {'Released': del_amt[210], 'RestrictingPlan': 0}
+        Assertion.del_lock_release_money(normal_aide0, normal_aide0_nt, lock_info_release_data)
+
+        logger.info(f"领取已释放的锁定金")
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, diff_restr=True)
+        Assertion.assert_restr_amt(restr_before, restr_later, {})
+        assert abs(red_acc_amt - acc_amt_before - del_amt[210]) < BD.von_min
+
+        logger.info("查询A节点的委托信息")
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": del_amt[100], "RestrictingPlan": del_amt[850],
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info("赎回 ABCD 节点的委托")
+        for i in range(4):
+            aide_nt, node_id = all_aide_nt_list[i], all_aide_nt_list[i].node_id
+            if i == 0:
+                logger.info("A节点 赎回100 生效期自由金额100")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[100],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt)
+                delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[850],
+                                             "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                             "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+                lock_expect_data = {(6, del_amt[1340], del_amt[660]), (7, del_amt[100], 0)}
+            elif i == 1:
+                logger.info("B节点 赎回550 生效期自由金额250 + 生效期锁仓金额300")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[550],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt) is None
+                lock_expect_data = {(6, del_amt[1340], del_amt[660]), (7, del_amt[350], del_amt[300])}
+            elif i == 2:
+                logger.info("C节点 生效期自由金额250 + 锁仓金额200")
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[450],
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt) is None
+                lock_expect_data = {(6, del_amt[1340], del_amt[660]), (7, del_amt[600], del_amt[500])}
+            else:
+                logger.info("D节点 赎回40 生效期锁仓金额40")
+                del_amt_40 = BD.delegate_limit * 4
+                assert normal_aide0.delegate.withdrew_delegate(amount=del_amt_40,
+                                                               staking_block_identifier=aide_nt.StakingBlockNum,
+                                                               node_id=node_id,
+                                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
+                assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, aide_nt) is None
+                lock_expect_data = {(6, del_amt[1340], del_amt[660]), (7, del_amt[600], del_amt[500] + del_amt_40)}
+
+            Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+            Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        assert normal_aide0.platon.block_number < 160 * 6
+        return red_acc_amt, restr_later
+
+    @staticmethod
+    def _cycle_7_block_961_1120(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        assert normal_aide0.platon.block_number > 160 * 6
+
+        logger.info(f"cycle7 验证锁仓计划 释放300 账户余额+0 欠释放字段+300")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {'debt': {"old_value": del_amt[250], "new_value": del_amt[550]},
+                             'plans': {'old_value_len': 7, 'new_value_len': 6}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+
+        logger.info(f"验证锁定期已释放金额")
+        lock_expect_data = {(7, del_amt[600], del_amt[540])}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+        logger.info(f"锁定期已释放数据")
+        lock_info_release_data = {'Released': del_amt[1340], 'RestrictingPlan': del_amt[660]}
+        Assertion.del_lock_release_money(normal_aide0, normal_aide0_nt, lock_info_release_data)
+
+        logger.info(f"领取锁定金 自由金额1340 锁仓金额660")
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, diff_restr=True)
+
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[2050], "new_value": del_amt[1500]},
+            'debt': {"old_value": del_amt[550], "new_value": 0},
+            'Pledge': {"old_value": del_amt[2050], "new_value": del_amt[1390]}}
+        Assertion.assert_restr_amt(restr_before, restr_later, restr_expect_data)
+        assert abs(red_acc_amt - ago_acc_amt - del_amt[1340] - del_amt[550]) < BD.von_min
+
+        logger.info(f"使用锁定金委托 A节点 1000 ")
+        assert normal_aide0.delegate.delegate(del_amt[1000], 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
+        lock_expect_data = {(7, del_amt[140], 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"A节点的委托信息")
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": 0, "RestrictingPlan": del_amt[850],
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": del_amt[460], "LockRestrictingPlanHes": del_amt[540]}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        assert normal_aide0.platon.block_number < 160 * 7
+        return red_acc_amt, restr_later
+
+    @staticmethod
+    def _cycle_8_block_1121_1280(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        assert normal_aide0.platon.block_number > 160 * 7
+        logger.info(f"cycle8 验证锁仓计划 释放300 账户余额+0 欠释放字段+300")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[1500], "new_value": del_amt[1390]},
+            'debt': {"old_value": 0, "new_value": del_amt[190]},
+            'plans': {'old_value_len': 6, 'new_value_len': 5}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert abs(acc_amt - ago_acc_amt - del_amt[110]) < BD.von_min
+
+        logger.info(f"锁定期已释放数据")
+        lock_info_release_data = {'Released': del_amt[140], 'RestrictingPlan': 0}
+        Assertion.del_lock_release_money(normal_aide0, normal_aide0_nt, lock_info_release_data)
+
+        logger.info(f"领取锁定金 自由金额140")
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, diff_restr=True)
+        Assertion.assert_restr_amt(restr_before, restr_later, {})
+        assert abs(red_acc_amt - acc_amt_before - del_amt[140]) < BD.von_min
+
+        logger.info(f"A节点的委托信息")
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": del_amt[460], "RestrictingPlan": del_amt[1390],
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+
+        logger.info(f"全部赎回 460 + 1390")
+        assert normal_aide0.delegate.withdrew_delegate(amount=del_amt[1850],
+                                                       staking_block_identifier=normal_aide0_nt.StakingBlockNum,
+                                                       node_id=normal_aide0_nt.node_id,
+                                                       private_key=normal_aide0_nt.del_pk, )['code'] == 0
+        lock_expect_data = {(9, del_amt[460], del_amt[1390])}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+        assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
+
+        assert normal_aide0.platon.block_number < 160 * 8
+        return red_acc_amt, restr_later
+
+    @staticmethod
+    def _cycle_9(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        logger.info(f"cycle9 验证锁仓计划 释放300 账户余额+0 欠释放字段+300")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+        restr_expect_data = {
+            'debt': {"old_value": del_amt[190], "new_value": del_amt[490]},
+            'plans': {'old_value_len': 5, 'new_value_len': 4}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert ago_acc_amt - acc_amt < BD.von_min
+        return acc_amt, restr_info
+
+    @staticmethod
+    def _cycle_10(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        logger.info(f"cycle10 验证锁仓计划 释放300 账户余额+0 欠释放字段+300")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+
+        restr_expect_data = {
+            'debt': {"old_value": del_amt[490], "new_value": del_amt[790]},
+            'plans': {'old_value_len': 4, 'new_value_len': 3}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert ago_acc_amt - acc_amt < BD.von_min
+
+        logger.info(f"领取已解锁的锁定金")
+        acc_amt_before, red_acc_amt, restr_before, restr_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0, diff_restr=True)
+
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[1390], "new_value": del_amt[600]},
+            'debt': {"old_value": del_amt[790], "new_value": 0},
+            'Pledge': {"old_value": del_amt[1390], "new_value": 0}}
+        Assertion.assert_restr_amt(restr_before, restr_later, restr_expect_data)
+        assert abs(red_acc_amt - acc_amt_before - del_amt[460] - del_amt[790]) < BD.von_min
+
+        return red_acc_amt, restr_later
+
+    @staticmethod
+    def _cycle_11(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        logger.info(f"cycle11 验证锁仓计划 释放300 账户余额+300")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[600], "new_value": del_amt[300]},
+            'plans': {'old_value_len': 3, 'new_value_len': 2}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert del_amt[300] - (acc_amt - ago_acc_amt) < BD.von_min
+
+        logger.info(f"已无锁定期数据,并领取")
+        Assertion.del_lock_info_zero_money(normal_aide0, normal_aide0_nt)
+        acc_amt_before, red_acc_amt = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0)
+        assert red_acc_amt - acc_amt_before < BD.von_min
+        return red_acc_amt, restr_info
+
+    @staticmethod
+    def _cycle_12(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        logger.info(f"cycle12 验证锁仓计划 释放300 账户余额+200")
+        restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+
+        restr_expect_data = {
+            'balance': {"old_value": del_amt[300], "new_value": del_amt[100]},
+            'plans': {'old_value_len': 2, 'new_value_len': 1}, }
+        Assertion.assert_restr_amt(ago_restr_info, restr_info, restr_expect_data)
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert del_amt[200] - (acc_amt - ago_acc_amt) < BD.von_min
+
+        logger.info(f"已无锁定期数据,并领取")
+        Assertion.del_lock_info_zero_money(normal_aide0, normal_aide0_nt)
+        acc_amt_before, red_acc_amt = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0)
+        assert red_acc_amt - acc_amt_before < BD.von_min
+        return red_acc_amt, restr_info
+
+    @staticmethod
+    def _cycle_13(del_amt, loop_delegate, ago_acc_amt):
+        normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
+        logger.info(f"cycle12 验证锁仓计划 释放300 账户余额+100")
+        # Account is not found on restricting contract
+        assert PF.p_get_restricting_info(normal_aide0, normal_aide0_nt) == ERROR_CODE[304005]
+
+        acc_amt = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert del_amt[100] - (acc_amt - ago_acc_amt) < BD.von_min
+
+        logger.info(f"已无锁定期数据,并领取")
+        Assertion.del_lock_info_zero_money(normal_aide0, normal_aide0_nt)
+        acc_amt_before, red_acc_amt = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0)
+        assert red_acc_amt - acc_amt_before < BD.von_min
+        logger.info(f"最后账户余额: {red_acc_amt}")
+        return red_acc_amt
+
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     def test_loop_delegate(self, loop_delegate):
         logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
         normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
         all_aide_nt_list.insert(0, normal_aide0_nt)
-        del_amt = {i * 10: BD.delegate_limit * i for i in range(5, 301) if i % 5 == 0}
+        del_amt = {i * 10: BD.delegate_limit * i for i in range(5, 301)}
 
         ago_acc_amt, ago_restr_info = self._cycle_2_block_161_320(del_amt, loop_delegate)
-
         wait_settlement(normal_aide0)
         ago_acc_amt, ago_restr_info = self._cycle_3_block_321_480(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
-        # TODO:
-        #    - 领取已释放的锁定金额
-        #    - 后续周期中保留部分锁定金不用于委托, 并每个结算周期进行提取
-
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_4_block_481_640(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_5_block_641_800(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_6_block_801_960(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_7_block_961_1120(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_8_block_1121_1280(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_9(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_10(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_11(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        ago_acc_amt, ago_restr_info = self._cycle_12(del_amt, loop_delegate, ago_acc_amt, ago_restr_info)
+        wait_settlement(normal_aide0)
+        acc_amt = self._cycle_13(del_amt, loop_delegate, ago_acc_amt)
+        # 所有的钱都已赎回至账户 账户金额10W
+        assert BD.init_del_account_amt - acc_amt < BD.von_min
