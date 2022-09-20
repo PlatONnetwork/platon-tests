@@ -1088,6 +1088,87 @@ class TestWithdrewDelegate:
 
         assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
+    @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": True}], indirect=True)
+    def test_withdrew_delegate_min(self, lock_mix_amt_unlock_eq_delegate):
+        """
+        测试赎回委托 低于最小委托限制后 会全部赎回
+        - 锁定期生效期 锁仓金额1000 自由金额800
+            * 先赎回801  -> 锁仓金额余 999
+            * 在赎回990  -> 将锁仓金额999全部赎回
+        - 锁定期犹豫期 锁仓金额1000 自由金额15
+            * 先赎回10   -> 自由金额5 锁仓金额1000
+            * 在赎回1000 -> 全部赎回
+        - 锁定期犹豫期 锁仓金额1000 自由金额10 账户自由金额10
+            * 先赎回25   -> 账户自由金额10 + 锁定期自由金额10 + 锁仓金额5  锁定期 锁仓余995
+            * 赎回990    -> 锁仓995 全部赎回
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt = lock_mix_amt_unlock_eq_delegate
+        logger.info(f"-生效期 赎回委托 801 生效期自由金额800 + 生效期锁仓金额1")
+        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_limit * 80 + BD.von_limit,
+                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": 0, "RestrictingPlan": BD.von_limit * 999,
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+        lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_limit)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"-生效期 赎回委托990 生效期锁仓金额999  低于10会全部赎回")
+        assert normal_aide0.delegate.withdrew_delegate(BD.von_limit * 990,
+                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
+        lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.delegate_amount)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"-锁定金委托 1015=锁仓金额1k + 自由金额15")
+        assert normal_aide0.delegate.delegate(BD.von_k + BD.von_limit * 15, 3,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": BD.von_limit * 15, "LockRestrictingPlanHes": BD.von_k}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+        lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80 - BD.von_limit * 15, 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"犹豫期赎回10  自由金额还剩下5")
+        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_limit,
+                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
+                                     "ReleasedHes": 0, "RestrictingPlanHes": 0,
+                                     "LockReleasedHes": BD.von_limit * 5, "LockRestrictingPlanHes": BD.von_k}
+        Assertion.assert_delegate_info_contain(delegate_info, delegate_info_expect_data)
+        lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80 - BD.von_limit * 5, 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info(f"犹豫期赎回1000 会赎回 自由金额5 + 锁仓金额1000")
+        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_amount,
+                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
+        lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_k)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+        logger.info("账户金额 和锁仓金额混合委托 ")
+        assert normal_aide0.delegate.delegate(BD.von_k + BD.von_limit * 10, 3,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+        assert normal_aide0.delegate.delegate(BD.von_limit * 10, 0, private_key=normal_aide0_nt.del_pk)['code'] == 0
+        logger.info("赎回25 账户自由金额10 + 锁定期自由金额10 + 锁仓金额5")
+        assert normal_aide0.delegate.withdrew_delegate(BD.von_limit * 25,
+                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_limit * 5)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+        logger.info("赎回990 -> 锁仓金额990 + 剩下5 小于最低金额 = 995")
+        assert normal_aide0.delegate.withdrew_delegate(BD.von_limit * 990,
+                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_k)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
 
 class TestAccLockMixAmtHesitation(TestWithdrewDelegate):
     """测试赎回委托 / 账户委托(MixAmt同时)犹豫期、锁定期委托犹豫期 (01~04)"""
@@ -3178,6 +3259,12 @@ class TestLoopDelegate:
 
     @staticmethod
     def _cycle_4_block_481_640(del_amt, loop_delegate, ago_acc_amt, ago_restr_info):
+        """
+        @Desc:
+            - 提取已释放的锁定期金额 -> 自由金额 100
+            - 赎回委托并重新委托
+        """
+
         normal_aide0, normal_aide0_nt, all_aide_nt_list, plan, init_restr_info = loop_delegate
 
         assert normal_aide0.platon.block_number > 160 * 3
@@ -3660,4 +3747,4 @@ class TestLoopDelegate:
         wait_settlement(normal_aide0)
         acc_amt = self._cycle_13(del_amt, loop_delegate, ago_acc_amt)
         # 所有的钱都已赎回至账户 账户金额10W
-        assert BD.init_del_account_amt - acc_amt < BD.von_min
+        assert BD.init_del_account_amt - acc_amt < BD.von_limit
