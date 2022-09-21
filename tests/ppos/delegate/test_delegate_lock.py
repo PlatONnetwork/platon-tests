@@ -497,6 +497,50 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True, "StaAmt": "limit"}], indirect=True)
+    def test_lock_del_candidate_list(self, create_lock_mix_amt_unlock_eq):
+        """
+        @Desc:
+            - 测试对 candidate_list 中的节点进行委托
+            - 测试释放金额小于最低委托金额时 不会自动提取
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_unlock_eq
+        print(normal_aide0_nt.node_id)
+        print(normal_aide1_nt.node_id)
+        validator_list = get_pledge_list(normal_aide0.staking.get_validator_list)
+        logger.info(f"1: {validator_list}")
+        verifier_list = get_pledge_list(normal_aide0.staking.get_verifier_list)
+        logger.info(f"2: {verifier_list}")
+        candidate_list = get_pledge_list(normal_aide0.staking.get_candidate_list)
+        logger.info(f"3: {candidate_list}")
+        assert normal_aide0_nt.node_id in verifier_list and normal_aide0_nt.node_id in candidate_list
+        assert normal_aide1_nt.node_id not in verifier_list and normal_aide1_nt.node_id in candidate_list
+
+        logger.info(f"使用锁定金 对节点B进行委托")
+        assert normal_aide0.delegate.delegate(BD.von_k * 2 - BD.von_limit, 3, normal_aide1_nt.node_id,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+        expect_data = {(3, BD.von_limit, 0)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
+
+        wait_settlement(normal_aide0, 1)
+        logger.info("验证释放金额 小于最低委托金额时 不会自动释放")
+        expect_data = {"Released": BD.von_limit, "RestrictingPlan": 0}
+        Assertion.del_lock_release_money(normal_aide0, normal_aide0_nt, expect_data)
+
+        logger.info(f"对节点B赎回委托")
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, BD.von_k, normal_aide1_nt, normal_aide0_nt.del_pk)
+        wit_del_data = {
+            "lockReleased": BD.von_k - BD.von_limit, "lockRestrictingPlan": BD.von_limit,
+            "released": 0, "restrictingPlan": 0
+        }
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, expect_data=wit_del_data)
+
+        expect_data = {(5, BD.von_k - BD.von_limit, BD.von_limit)}
+        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
+
 
 class TestDelegateLockManyAccToManyNode:
     """ 测试多账户-多节点场景 """
