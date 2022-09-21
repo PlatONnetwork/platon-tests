@@ -18,7 +18,8 @@ from lib.funcs import wait_settlement, wait_consensus
 from lib.utils import get_pledge_list, PrintInfo as PF
 from tests.conftest import generate_account
 
-logger.add("logs/case_{time}.log", rotation="500MB")
+
+# logger.add("logs/case_{time}.log", rotation="500MB")
 
 
 def redeem_del_wait_unlock_diff_balance_restr(aide, aide_nt, wait_num=2, diff_restr=False):
@@ -996,9 +997,11 @@ class TestDelegateLockNodeException:
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301103]
 
         wait_settlement(normal_aide0, 1)
-        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_amount, normal_aide1_nt.StakingBlockNum,
-                                                       node_id=normal_aide1_nt.node_id,
-                                                       private_key=normal_aide1_nt.del_pk)['code'] == 0
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, BD.delegate_amount, normal_aide1_nt, normal_aide1_nt.del_pk)
+        expect_data = {"lockReleased": BD.delegate_amount, "lockRestrictingPlan": 0,
+                       "released": 0, "restrictingPlan": 0}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, expect_data)
+
         logger.info(f"-验证 lock_info 只存在一笔锁定金额,之前的锁定期金额已释放")
         assert len(PF.p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)['Locks']) == 1
         assert PF.p_get_candidate_info(normal_aide0, normal_aide1).Status == 33
@@ -1020,8 +1023,11 @@ class TestDelegateLockNodeException:
 
 
 class TestWithdrewDelegate:
-    """测试赎回委托"""
+    """测试赎回委托 - 此类只做用例理解标识,无实际用例"""
+    pass
 
+
+class TestWithdrewDelegateBaseCase(TestWithdrewDelegate):
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1041,14 +1047,21 @@ class TestWithdrewDelegate:
         logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
         normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt = lock_mix_amt_unlock_eq_delegate
         logger.info(f"-赎回委托 limit * 10")
-        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_limit * 10,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, BD.delegate_limit * 10,
+                                             normal_aide0_nt, normal_aide0_nt.del_pk)
+        wit_del_data = {"lockReleased": BD.delegate_limit * 10, "lockRestrictingPlan": 0,
+                        "released": 0, "restrictingPlan": 0}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
+
         expect_data1 = {(3, lock_residue_amt + BD.delegate_limit * 10, 0)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data1)
 
         logger.info(f"-赎回委托 delegate_amount = limit * 100")
-        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_amount,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, BD.delegate_amount,
+                                             normal_aide0_nt, normal_aide0_nt.del_pk)
+        wit_del_data = {"lockReleased": BD.delegate_limit * 70, "lockRestrictingPlan": BD.delegate_limit * 30,
+                        "released": 0, "restrictingPlan": 0}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
 
         expect_data2 = {(3, BD.delegate_amount, lock_residue_amt + BD.delegate_limit * 10)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
@@ -1060,8 +1073,12 @@ class TestWithdrewDelegate:
         wait_settlement(normal_aide0)
 
         logger.info(f"-跨结算周期赎回委托 limit * 70")
-        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_limit * 70,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, BD.delegate_limit * 70,
+                                             normal_aide0_nt, normal_aide0_nt.del_pk)
+        wit_del_data = {"lockReleased": 0, "lockRestrictingPlan": BD.delegate_limit * 70,
+                        "released": 0, "restrictingPlan": 0}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
+
         expect_data2.add((4, 0, BD.delegate_limit * 70))
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
 
@@ -1107,8 +1124,14 @@ class TestWithdrewDelegate:
         logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
         normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt = lock_mix_amt_unlock_eq_delegate
         logger.info(f"-生效期 赎回委托 801 生效期自由金额800 + 生效期锁仓金额1")
-        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_limit * 80 + BD.von_limit,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        response = normal_aide0.delegate.withdrew_delegate(BD.delegate_limit * 80 + BD.von_limit,
+                                                           private_key=normal_aide0_nt.del_pk)
+        logger.info(f"-1.赎回委托信息: {response}")
+        assert response['code'] == 0
+        lock_data = response.data
+        assert lock_data.lockReleased == BD.delegate_limit * 80
+        assert lock_data.lockRestrictingPlan == BD.von_limit
+        assert lock_data.released == 0 and lock_data.restrictingPlan == 0
 
         delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
         delegate_info_expect_data = {"Released": 0, "RestrictingPlan": BD.von_limit * 999,
@@ -1119,8 +1142,13 @@ class TestWithdrewDelegate:
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
 
         logger.info(f"-生效期 赎回委托990 生效期锁仓金额999  低于10会全部赎回")
-        assert normal_aide0.delegate.withdrew_delegate(BD.von_limit * 990,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        response = normal_aide0.delegate.withdrew_delegate(BD.von_limit * 990, private_key=normal_aide0_nt.del_pk)
+        logger.info(f"-2.赎回委托信息: {response}")
+        assert response['code'] == 0
+        lock_data = response.data
+        assert lock_data.lockRestrictingPlan == BD.von_limit * 999
+        assert lock_data.released == 0 and lock_data.restrictingPlan == 0 and lock_data.lockReleased == 0
+
         assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
         lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.delegate_amount)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
@@ -1137,8 +1165,15 @@ class TestWithdrewDelegate:
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
 
         logger.info(f"犹豫期赎回10  自由金额还剩下5")
-        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_limit,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        response = normal_aide0.delegate.withdrew_delegate(BD.delegate_limit, private_key=normal_aide0_nt.del_pk)
+        logger.info(f"-3.赎回委托信息: {response}")
+        assert response['code'] == 0
+        lock_data = response.data
+        assert lock_data.lockReleased == BD.delegate_limit
+        assert lock_data.lockRestrictingPlan == 0
+        assert lock_data.released == 0
+        assert lock_data.restrictingPlan == 0
+
         delegate_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
         delegate_info_expect_data = {"Released": 0, "RestrictingPlan": 0,
                                      "ReleasedHes": 0, "RestrictingPlanHes": 0,
@@ -1148,8 +1183,15 @@ class TestWithdrewDelegate:
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
 
         logger.info(f"犹豫期赎回1000 会赎回 自由金额5 + 锁仓金额1000")
-        assert normal_aide0.delegate.withdrew_delegate(BD.delegate_amount,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        response = normal_aide0.delegate.withdrew_delegate(BD.delegate_amount, private_key=normal_aide0_nt.del_pk)
+        logger.info(f"-4.赎回委托信息: {response}")
+        assert response['code'] == 0
+        lock_data = response.data
+        assert lock_data.lockReleased == BD.von_limit * 5
+        assert lock_data.lockRestrictingPlan == BD.delegate_amount
+        assert lock_data.released == 0
+        assert lock_data.restrictingPlan == 0
+
         assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
         lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_k)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
@@ -1159,15 +1201,75 @@ class TestWithdrewDelegate:
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(BD.von_limit * 10, 0, private_key=normal_aide0_nt.del_pk)['code'] == 0
         logger.info("赎回25 账户自由金额10 + 锁定期自由金额10 + 锁仓金额5")
-        assert normal_aide0.delegate.withdrew_delegate(BD.von_limit * 25,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        response = normal_aide0.delegate.withdrew_delegate(BD.von_limit * 25, private_key=normal_aide0_nt.del_pk)
+
+        logger.info(f"-5.赎回委托信息: {response}")
+        assert response['code'] == 0
+        lock_data = response.data
+        assert lock_data.lockReleased == BD.delegate_limit
+        assert lock_data.lockRestrictingPlan == BD.von_limit * 5
+        assert lock_data.released == BD.delegate_limit
+        assert lock_data.restrictingPlan == 0
+
         lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_limit * 5)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
         logger.info("赎回990 -> 锁仓金额990 + 剩下5 小于最低金额 = 995")
-        assert normal_aide0.delegate.withdrew_delegate(BD.von_limit * 990,
-                                                       private_key=normal_aide0_nt.del_pk)['code'] == 0
+        response = normal_aide0.delegate.withdrew_delegate(BD.von_limit * 990, private_key=normal_aide0_nt.del_pk)
+        logger.info(f"-6.赎回委托信息: {response}")
+        assert response['code'] == 0
+        lock_data = response.data
+        assert lock_data.lockReleased == 0
+        assert lock_data.lockRestrictingPlan == BD.von_limit * 995
+        assert lock_data.released == 0
+        assert lock_data.restrictingPlan == 0
+
         lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_k)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False}], indirect=True)
+    @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": True}], indirect=True)
+    @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": False}], indirect=True)
+    def test_withdrew_delegate_response(self, acc_mix_amt_delegate, lock_mix_amt_unlock_eq_delegate):
+        """
+        测试赎回委托的响应数据
+        @setup:
+            - 创建锁定金混合金额
+            - 账户混合金额去委托(自由金额1000 + 锁仓1000)  并 进入生效期
+            - 锁定金额委托(自由金额800 + 锁仓1000)
+        @Desc:
+            - 账户金额去委托(自由金额1000 + 锁仓1000)
+            - 赎回5500  -> 验证赎回委托返回数据
+        """
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt = lock_mix_amt_unlock_eq_delegate
+
+        logger.info(f"使用账户自由金额委托: {BD.delegate_amount}")
+        assert normal_aide0.delegate.delegate(BD.delegate_amount, 0,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+        logger.info(f"使用账户锁仓金额委托: {BD.delegate_amount}")
+        lockup_amount = BD.delegate_amount  # platon/10 * 100
+        plan = [{'Epoch': 10, 'Amount': lockup_amount}]
+        logger.info(f'{f"{normal_aide0.node}: 锁仓金额委托":*^50s}')
+        assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
+                                                    private_key=normal_aide0_nt.del_pk)['code'] == 0
+        assert normal_aide0.delegate.delegate(amount=BD.delegate_amount, balance_type=1,
+                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
+
+        del_info = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        expect_del_info = {
+            'Released': BD.von_k, 'ReleasedHes': BD.von_k,
+            'RestrictingPlan': BD.von_k, 'RestrictingPlanHes': BD.von_k,
+            'LockReleasedHes': BD.von_k - lock_residue_amt, 'LockRestrictingPlanHes': BD.von_k
+        }
+        Assertion.assert_delegate_info_contain(del_info, expect_del_info)
+        wit_del_amt = BD.von_k * 5 + BD.delegate_limit * 50
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, wit_del_amt, normal_aide0_nt, normal_aide0_nt.del_pk)
+        released = BD.von_k - lock_residue_amt
+        restrictingPlan = (BD.von_k + BD.delegate_limit * 50) - released
+        wit_del_data = {"lockReleased": BD.von_k + released, "lockRestrictingPlan": BD.von_k + restrictingPlan,
+                        "released": BD.von_k, "restrictingPlan": BD.von_k}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
 
 
 class TestAccLockMixAmtHesitation(TestWithdrewDelegate):
@@ -2699,13 +2801,18 @@ class TestRedeemDelegate:
         Assertion.del_lock_release_money(normal_aide1, normal_aide1_nt, expect_data3)
 
         logger.info(f"账户A1 取消委托 并进入冻结期")
-        assert normal_aide0.delegate.withdrew_delegate(amount=BD.delegate_limit,
-                                                       staking_block_identifier=normal_aide0_nt.StakingBlockNum,
-                                                       private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.withdrew_delegate(amount=BD.delegate_limit,
-                                                       staking_block_identifier=normal_aide1_nt.StakingBlockNum,
-                                                       node_id=normal_aide1_nt.node_id,
-                                                       private_key=normal_aide1_nt.del_pk)['code'] == 0
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, BD.delegate_limit,
+                                             normal_aide0_nt, normal_aide1_nt.del_pk)
+        wit_del_data = {"lockReleased": BD.delegate_limit, "lockRestrictingPlan": 0,
+                        "released": 0, "restrictingPlan": 0}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
+
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, BD.delegate_limit,
+                                             normal_aide1_nt, normal_aide1_nt.del_pk)
+        wit_del_data = {"lockReleased": BD.delegate_limit, "lockRestrictingPlan": 0,
+                        "released": 0, "restrictingPlan": 0}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
+
         logger.info(f"领取账户B1 已释放金额")
         acc_amt_before, red_acc_amt, restr_before, restr_later = \
             redeem_del_wait_unlock_diff_balance_restr(normal_aide1, normal_aide1_nt, wait_num=2, diff_restr=True)
@@ -2857,10 +2964,12 @@ class TestRedeemDelegate:
         Assertion.assert_restr_amt(restr_before, restr_later, expect_data2)
 
         logger.info(f"赎回 节点A 的锁仓金额委托, 并进入锁定期")
-        assert normal_aide0.delegate.withdrew_delegate(amount=del_amt,
-                                                       staking_block_identifier=normal_aide0_nt.StakingBlockNum,
-                                                       node_id=normal_aide0_nt.node_id,
-                                                       private_key=normal_aide0_nt.del_pk, )['code'] == 0
+        wit_del_res = PF.p_withdrew_delegate(normal_aide0, del_amt,
+                                             normal_aide0_nt, normal_aide0_nt.del_pk)
+        wit_del_data = {"lockReleased": 0, "lockRestrictingPlan": del_amt,
+                        "released": 0, "restrictingPlan": 0}
+        Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
+
         logger.info(f"等待节点A的锁仓金额 解锁并领取")
         acc_amt_before, red_acc_amt, restr_before, restr_later = \
             redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=2, diff_restr=True)
@@ -2873,11 +2982,11 @@ class TestRedeemDelegate:
 
         logger.info(f"赎回 节点B、C、D 的锁仓金额委托, 并进入锁定期")
         for i in range(1, 4):
-            aide_nt_BlockNum = other_nt_list[i - 1].StakingBlockNum
-            assert normal_aide0.delegate.withdrew_delegate(amount=del_amt,
-                                                           staking_block_identifier=aide_nt_BlockNum,
-                                                           node_id=normal_aides[i].node.node_id,
-                                                           private_key=normal_aide0_nt.del_pk, )['code'] == 0
+            wit_del_res = PF.p_withdrew_delegate(normal_aide0, del_amt,
+                                                 other_nt_list[i - 1], normal_aide0_nt.del_pk)
+            wit_del_data = {"lockReleased": 0, "lockRestrictingPlan": del_amt,
+                            "released": 0, "restrictingPlan": 0}
+            Assertion.assert_withdrew_delegate_response_contain(wit_del_res, wit_del_data)
 
         logger.info(f"等待节点B、C、D的锁仓金额 解锁并领取")
         acc_amt_before, red_acc_amt, restr_before, restr_later = \

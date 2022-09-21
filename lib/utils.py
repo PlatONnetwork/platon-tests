@@ -139,3 +139,13 @@ class PrintInfo:
         candidate_info = run_aide.staking.get_candidate_info(node_id=query_aide.node.node_id)
         logger.info(f"{query_aide.node}: {candidate_info}")
         return candidate_info
+
+    @staticmethod
+    def p_withdrew_delegate(run_aide, withdrew_amt, withdrew_aide_nt, del_pk):
+        """@return: 赎回委托数据中data"""
+        response = run_aide.delegate.withdrew_delegate(withdrew_amt, withdrew_aide_nt.StakingBlockNum,
+                                                       node_id=withdrew_aide_nt.node_id,
+                                                       private_key=del_pk)
+        logger.info(f'withdrew_delegate: {response}')
+        assert response['code'] == 0
+        return response.data

@@ -50,6 +50,13 @@ class Assertion:
         assert x.issuperset(y), f"delegate_info:{delegate_info}, expect_data:{expect_data}"
 
     @classmethod
+    def assert_withdrew_delegate_response_contain(cls, withdrew_delegate_res, expect_data: dict):
+        """withdrew_delegate 包含 expect_data"""
+        x = set(withdrew_delegate_res.items())
+        y = set(expect_data.items())
+        assert x.issuperset(y), f"delegate_info:{withdrew_delegate_res}, expect_data:{expect_data}"
+
+    @classmethod
     def diff_restr_info(cls, before, last) -> dict:
         """
         对比锁仓信息,返回不一致数据
