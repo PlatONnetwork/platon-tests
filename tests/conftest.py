@@ -182,7 +182,7 @@ def create_sta_del_account(aide, sta_amt, del_amt):
     return sta_addr, sta_pk, del_addr, del_pk
 
 
-def create_sta_del(aide, sta_amt=None, restr_plan=None, mix=False):
+def create_sta_del(aide,  restr_plan=None, mix=False, sta_amt=None):
     """
     创建质押和委托
     @param aide:
@@ -460,16 +460,14 @@ def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, no
 
     logger.info(f"{normal_aide0.node}: 创建质押和 混合金额")
     if req_param.get("StaAmt"):  # 为了解决质押最低金额
-        normal_aide0_namedtuple = create_sta_del(normal_aide0, sta_amt=BaseData.staking_limit,
-                                                 restr_plan=plan, mix=True)
+        normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True, sta_amt=BaseData.staking_limit,)
     else:  # 默认为质押 BaseData.staking_limit * 4
         normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
 
     if req_param.get("ManyAcc"):  # 为了解决多个账户创建一样的数据信息
         logger.info(f"{normal_aide1.node}: 创建质押和 混合金额")
         if req_param.get("StaAmt"):
-            normal_aide1_namedtuple = create_sta_del(normal_aide1, sta_amt=BaseData.staking_limit,
-                                                     restr_plan=plan, mix=True)
+            normal_aide1_namedtuple = create_sta_del(normal_aide1, plan, mix=True, sta_amt=BaseData.staking_limit)
         else:
             normal_aide1_namedtuple = create_sta_del(normal_aide1, plan, mix=True)
     else:
