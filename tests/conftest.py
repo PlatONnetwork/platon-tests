@@ -200,6 +200,7 @@ def create_sta_del(aide,  restr_plan=None, mix=False, sta_amt=None):
     if not sta_amt:
         sta_amt = BaseData.staking_limit * 4
     assert aide.staking.create_staking(amount=sta_amt, benefit_address=sta_addr,
+                                       reward_per=10,
                                        private_key=sta_pk)['code'] == 0
     StakingBlockNum = aide.staking.staking_info.StakingBlockNum
     if not restr_plan:

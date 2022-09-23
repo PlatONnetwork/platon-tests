@@ -541,6 +541,46 @@ class TestDelegateLockOneAccToManyNode:
         expect_data = {(5, BD.von_k - BD.von_limit, BD.von_limit)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False}], indirect=True)
+    @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": True}], indirect=True)
+    def test_interface_1104_5100_1005_reward_field(self, lock_mix_amt_unlock_eq_delegate):
+        """
+        测试 接口1104 resp: CumulativeIncome、5100 resp: reward、1005 resp: delegateIncome、1105 resp: DelegateRewardTotal
+        - 1104: 委托信息中的收益字段需要主动触发计算
+        - 1005: 全部赎回委托则触发委托收益 回 账户
+        """
+        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, lock_residue_amt = lock_mix_amt_unlock_eq_delegate
+        PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        wait_settlement(normal_aide0, 1)
+        del_info1 = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        assert del_info1.CumulativeIncome == 0
+
+        staking_info = normal_aide0.staking.staking_info
+
+        logger.info(f"赎回触发 delegate_info 中 委托奖励计算")
+        wit_del_data1 = PF.p_withdrew_delegate(normal_aide0, BD.delegate_limit, normal_aide0_nt, normal_aide0_nt.del_pk)
+        assert wit_del_data1.delegateIncome == 0
+
+        del_info2 = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
+        delegate_reward_info = normal_aide0.delegate.get_delegate_reward(normal_aide0_nt.del_addr,
+                                                                         [normal_aide0_nt.node_id])
+        logger.info(f"get_delegate_reward: {delegate_reward_info}")
+
+        assert del_info2.CumulativeIncome == delegate_reward_info[0].reward == staking_info.DelegateRewardTotal
+
+        wit_del_dat2 = PF.p_withdrew_delegate(normal_aide0, BD.delegate_limit, normal_aide0_nt, normal_aide0_nt.del_pk)
+        assert wit_del_dat2.delegateIncome == 0
+
+        amt_before = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        logger.info(f"全部赎回才会触发 delegateIncome 计算")
+        wit_del = BD.delegate_limit * 178
+        wit_del_dat3 = PF.p_withdrew_delegate(normal_aide0, wit_del, normal_aide0_nt, normal_aide0_nt.del_pk)
+        assert del_info2.CumulativeIncome == wit_del_dat3.delegateIncome
+        amt_later = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
+        assert wit_del_dat3.delegateIncome - (amt_later - amt_before) < BD.von_min
+
 
 class TestDelegateLockManyAccToManyNode:
     """ 测试多账户-多节点场景 """
