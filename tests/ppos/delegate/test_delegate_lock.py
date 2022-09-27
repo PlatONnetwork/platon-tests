@@ -135,6 +135,28 @@ def test_ghost_bug_001(normal_aide):
     pass
 
 
+@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+@pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
+def test_withdrew_staking(create_lock_free_amt):
+    """测试主动撤销质押 并 零出块"""
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, _ = create_lock_free_amt
+    assert normal_aide0.staking.withdrew_staking(node_id=normal_aide0_nt.node_id,
+                                                 private_key=normal_aide0_nt.sta_pk)['code'] == 0
+    candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
+    assert candidate_info.Status == 33
+    normal_aide0.node.stop()
+
+    punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide1, normal_aide0, normal_aide0_nt)
+    logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
+    if punishment_consensus_num == 4:  # 第4个共识轮被惩罚,表示上一个结算周期已过,需在等待一个结算周期
+        wait_settlement(normal_aide1)
+    else:
+        wait_settlement(normal_aide1, 1)
+    logger.info(f"被惩罚 节点质押金额 > staking_limit, 节点状态恢复正常")
+    candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
+    assert candidate_info.Status == 35
+
+
 class TestDelegateLockOneAccToManyNode:
     """ 测试单账户-多节点场景 """
 
@@ -498,7 +520,8 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
-    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True, "StaAmt": "limit"}], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True, "StaAmt": "limit", "rewardPer": 0}],
+                             indirect=True)
     def test_lock_del_candidate_list(self, create_lock_mix_amt_unlock_eq):
         """
         @Desc:
