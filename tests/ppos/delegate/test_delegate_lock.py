@@ -542,7 +542,7 @@ class TestDelegateLockOneAccToManyNode:
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
-    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False}], indirect=True)
+    @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False, "rewardPer": 10}], indirect=True)
     @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": True}], indirect=True)
     def test_interface_1104_5100_1005_reward_field(self, lock_mix_amt_unlock_eq_delegate):
         """
@@ -580,6 +580,14 @@ class TestDelegateLockOneAccToManyNode:
         assert del_info2.CumulativeIncome == wit_del_dat3.delegateIncome
         amt_later = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
         assert wit_del_dat3.delegateIncome - (amt_later - amt_before) < BD.von_min
+
+    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 0, }], indirect=True)
+    def test_undelegate_freeze_duration_zero(self, choose_undelegate_freeze_duration):
+        """解委托周期为零 部署链失败"""
+        chain, new_gen_file = choose_undelegate_freeze_duration
+        with pytest.raises(Exception) as exception_info:
+            chain.install(genesis_file=new_gen_file)
+        assert "executor install failed" in str(exception_info.value)
 
 
 class TestDelegateLockManyAccToManyNode:

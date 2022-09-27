@@ -182,13 +182,14 @@ def create_sta_del_account(aide, sta_amt, del_amt):
     return sta_addr, sta_pk, del_addr, del_pk
 
 
-def create_sta_del(aide,  restr_plan=None, mix=False, sta_amt=None):
+def create_sta_del(aide, restr_plan=None, mix=False, sta_amt=None, reward_per=0):
     """
     创建质押和委托
     @param aide:
     @param sta_amt: 节点中创建质押的金额
     @param restr_plan: 标识锁仓计划
     @param mix: 标识混合金额场景
+    @param reward_per: 分红比例 默认为0, 目前只针对A节点
     @Desc:
         - 传aide 即创建自由金额委托
         - 传aide + restr_plan  即创建锁仓金额委托
@@ -200,7 +201,7 @@ def create_sta_del(aide,  restr_plan=None, mix=False, sta_amt=None):
     if not sta_amt:
         sta_amt = BaseData.staking_limit * 4
     assert aide.staking.create_staking(amount=sta_amt, benefit_address=sta_addr,
-                                       reward_per=10,
+                                       reward_per=reward_per,
                                        private_key=sta_pk)['code'] == 0
     StakingBlockNum = aide.staking.staking_info.StakingBlockNum
     if not restr_plan:
@@ -262,6 +263,8 @@ def choose_undelegate_freeze_duration(request, chain):
         genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = duration
     elif duration == 2:
         genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 2
+    elif duration == 0:
+        genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 0
     else:
         genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 1
     genesis.save_as(new_gen_file)
@@ -461,7 +464,8 @@ def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, no
 
     logger.info(f"{normal_aide0.node}: 创建质押和 混合金额")
     if req_param.get("StaAmt"):  # 为了解决质押最低金额
-        normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True, sta_amt=BaseData.staking_limit,)
+        normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True, sta_amt=BaseData.staking_limit,
+                                                 reward_per=req_param.get("rewardPer"))
     else:  # 默认为质押 BaseData.staking_limit * 4
         normal_aide0_namedtuple = create_sta_del(normal_aide0, plan, mix=True)
 
