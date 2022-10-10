@@ -193,7 +193,7 @@ def create_sta_del(aide, restr_plan=None, mix=False, sta_amt=None, reward_per=0)
     @Desc:
         - 传aide 即创建自由金额委托
         - 传aide + restr_plan  即创建锁仓金额委托
-        - 传aide + restr_plan  先创建锁仓 在创建自由金额委托
+        - 传aide + restr_plan + mix=True  先创建锁仓 在创建自由金额委托
     """
     # create_sta_del_account 调用一次会新建账户
     sta_addr, sta_pk, del_addr, del_pk = create_sta_del_account(aide, BaseData.init_sta_account_amt,

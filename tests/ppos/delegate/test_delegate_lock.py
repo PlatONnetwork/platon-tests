@@ -6,6 +6,7 @@
 @Desc    :  委托锁定
 """
 import inspect
+import time
 from decimal import Decimal
 
 import pytest
@@ -16,7 +17,7 @@ from lib.assertion import Assertion
 from lib.basic_data import BaseData as BD
 from lib.funcs import wait_settlement, wait_consensus
 from lib.utils import get_pledge_list, PrintInfo as PF
-from tests.conftest import generate_account
+from tests.conftest import generate_account, create_sta_del
 
 
 # logger.add("logs/case_{time}.log", rotation="500MB")
@@ -3972,3 +3973,137 @@ class TestLoopDelegate:
         acc_amt = self._cycle_13(del_amt, loop_delegate, ago_acc_amt)
         # 所有的钱都已赎回至账户 账户金额10W
         assert BD.init_del_account_amt - acc_amt < BD.von_limit
+
+
+@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
+@pytest.mark.parametrize('many_cycle_restr_redeem_delegate', [{"ManyAcc": False}], indirect=True)
+def test_many_cycle_restr_draw_1(many_cycle_restr_redeem_delegate):
+    """
+    test_LS_UPV_023: 锁仓多个释放期，委托赎回
+    """
+    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = many_cycle_restr_redeem_delegate
+    # 查锁仓计划,欠释放100,总额1000
+    restr_info = PF.p_get_restricting_info(normal_aide0, normal_aide0_nt)
+    assert restr_info['debt'] == BD.delegate_limit * 10
+
+    for i in range(9):
+        acc_amt_before, red_acc_amt, restr_info_before, restr_info_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=1, diff_restr=True)
+
+        if i == 0:
+            restr_expect_data = {
+                'balance': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 80},
+                'debt': {'new_value': 0, 'old_value': BD.delegate_limit * 10},
+                'plans': {'old_value_len': 9, 'new_value_len': 8},
+                'Pledge': {"old_value": BD.delegate_amount, "new_value": 0}}
+            Assertion.assert_restr_amt(restr_info_before, restr_info_later, restr_expect_data)
+            assert red_acc_amt - acc_amt_before - BD.delegate_amount - BD.delegate_limit * 20 < BD.von_min
+        else:
+            # 因为是全部赎回锁仓金额,这里是锁仓计划正常释放至余额
+            init_restr_balance = BD.delegate_limit * 80
+            decrease_progressively = BD.delegate_limit * 10
+            restr_expect_data = {
+                'balance': {"old_value": init_restr_balance - decrease_progressively * i + decrease_progressively,
+                            "new_value": init_restr_balance - decrease_progressively * i},
+                'plans': {'old_value_len': 9 - i, 'new_value_len': 8 - i}}
+            if i == 8:
+                Assertion.assert_restr_amt(restr_info_before, restr_info_later, {})
+            else:
+                Assertion.assert_restr_amt(restr_info_before, restr_info_later, restr_expect_data)
+            assert red_acc_amt - acc_amt_before - BD.delegate_limit * 10 < BD.von_min
+    pass
+
+
+@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
+def test_many_cycle_restr_draw_2(choose_undelegate_freeze_duration, normal_aides):
+    """
+    test_LS_UPV_023: 锁仓多个释放期，委托赎回
+    """
+    chain, new_gen_file = choose_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+
+    lockup_amount = BD.delegate_amount  # platon/10 * 100
+    lock_amt = BD.delegate_limit * 10
+    assert lock_amt * 10 == lockup_amount
+    plan = [{'Epoch': i, 'Amount': lock_amt} for i in range(1, 11)]
+
+    normal_aide0_nt = create_sta_del(normal_aide0, plan, mix=True)
+
+    wait_settlement(normal_aide0)
+    # 赎回自由金额1000 + 锁仓100
+    undelegate_amt = BD.delegate_limit * 10
+
+    assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_nt.del_pk,
+                                                   staking_block_identifier=normal_aide0_nt.StakingBlockNum,
+                                                   amount=BD.delegate_amount + undelegate_amt, )['code'] == 0
+    for i in range(10):
+        acc_amt_before, red_acc_amt, restr_info_before, restr_info_later = \
+            redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=1, diff_restr=True)
+
+        if i != 9:
+            assert normal_aide0.delegate.withdrew_delegate(private_key=normal_aide0_nt.del_pk,
+                                                           staking_block_identifier=normal_aide0_nt.StakingBlockNum,
+                                                           amount=undelegate_amt, )['code'] == 0
+        if i == 0:
+            restr_expect_data = {
+                'balance': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 90},
+                'plans': {'old_value_len': 9, 'new_value_len': 8},
+                'Pledge': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 90}}
+            Assertion.assert_restr_amt(restr_info_before, restr_info_later, restr_expect_data)
+            assert red_acc_amt - acc_amt_before - BD.delegate_amount - BD.delegate_limit * 20 < BD.von_min
+        elif i == 9:
+            assert red_acc_amt - acc_amt_before - BD.delegate_limit * 10 < BD.von_min
+        else:
+            init_restr_balance = BD.delegate_limit * 90
+            decrease_progressively = BD.delegate_limit * 10
+            restr_expect_data = {
+                'balance': {"old_value": init_restr_balance - decrease_progressively * i + decrease_progressively,
+                            "new_value": init_restr_balance - decrease_progressively * i},
+                'plans': {'old_value_len': 9 - i, 'new_value_len': 8 - i},
+                'Pledge': {"old_value": init_restr_balance - decrease_progressively * i + decrease_progressively,
+                           "new_value": init_restr_balance - decrease_progressively * i}}
+            if i == 8:
+                restr_expect_data = {
+                    'balance': {"old_value": init_restr_balance - decrease_progressively * i + decrease_progressively,
+                                "new_value": init_restr_balance - decrease_progressively * i},
+                    'Pledge': {"old_value": init_restr_balance - decrease_progressively * i + decrease_progressively,
+                               "new_value": init_restr_balance - decrease_progressively * i}}
+            Assertion.assert_restr_amt(restr_info_before, restr_info_later, restr_expect_data)
+            assert red_acc_amt - acc_amt_before - BD.delegate_limit * 10 < BD.von_min
+
+
+@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
+def test_restr_draw_3(choose_undelegate_freeze_duration, normal_aides):
+    """
+    test_UP_FV_018: 赎回锁仓委托
+    """
+    chain, new_gen_file = choose_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+
+    plan = [{'Epoch': 1, 'Amount': BD.delegate_amount}]
+
+    normal_aide0_nt = create_sta_del(normal_aide0, plan, mix=True)
+
+    wait_settlement(normal_aide0)
+    # 赎回自由金额1000 + 锁仓500
+    undelegate_amt = BD.delegate_amount + BD.delegate_limit * 50
+
+    amt_before, amt_later, restr_before, restr_later = \
+        withdrew_del_diff_balance_restr(normal_aide0, normal_aide0_nt, undelegate_amt, diff_restr=True)
+    assert abs(amt_later - amt_before) < BD.von_min
+    Assertion.assert_restr_amt(restr_before, restr_later, {})
+
+    acc_amt_before, red_acc_amt, restr_info_before, restr_info_later = \
+        redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=1, diff_restr=True)
+    assert abs(red_acc_amt - acc_amt_before - undelegate_amt) < BD.von_min
+
+    expect_data = {'balance': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 50},
+                   'debt': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 50},
+                   'Pledge': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 50}}
+    Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
