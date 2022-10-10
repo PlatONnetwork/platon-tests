@@ -17,7 +17,7 @@ from lib.assertion import Assertion
 from lib.basic_data import BaseData as BD
 from lib.funcs import wait_settlement, wait_consensus
 from lib.utils import get_pledge_list, PrintInfo as PF
-from tests.conftest import generate_account, create_sta_del
+from tests.conftest import generate_account, create_sta_del, create_sta_del_account
 
 
 # logger.add("logs/case_{time}.log", rotation="500MB")
@@ -4107,3 +4107,80 @@ def test_restr_draw_3(choose_undelegate_freeze_duration, normal_aides):
                    'debt': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 50},
                    'Pledge': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 50}}
     Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
+
+
+@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
+def test_restr_draw_4(choose_undelegate_freeze_duration, normal_aides):
+    """锁仓计划中 包含有钱释放/没钱两种状态 结合 赎回委托"""
+    chain, new_gen_file = choose_undelegate_freeze_duration
+    chain.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    normal_aide0, normal_aide1 = normal_aides[0], normal_aides[1],
+    del_amt = BD.delegate_limit * 20
+    plan = [{'Epoch': 1, 'Amount': del_amt},
+            {'Epoch': 2, 'Amount': del_amt},
+            {'Epoch': 3, 'Amount': del_amt},
+            {'Epoch': 4, 'Amount': del_amt},
+            {'Epoch': 5, 'Amount': del_amt}]
+
+    sta_addr, sta_pk, del_addr, del_pk = create_sta_del_account(normal_aide0, BD.init_sta_account_amt,
+                                                                BD.init_del_account_amt)
+
+    assert normal_aide0.staking.create_staking(benefit_address=sta_addr, private_key=sta_pk)['code'] == 0
+    StakingBlockNum = normal_aide0.staking.staking_info.StakingBlockNum
+
+    assert normal_aide0.restricting.restricting(release_address=del_addr, plans=plan,
+                                                private_key=del_pk)['code'] == 0
+    restr_info = normal_aide0.restricting.get_restricting_info(del_addr)
+    logger.info(f"restricting: {restr_info}")
+
+    for i in range(6):
+        if i < 3:  # 第四个结算周期 锁仓中已经没钱了
+            restricting_contract_1 = normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)
+            logger.info(f"{i} - restricting_contract_1: {restricting_contract_1}")
+            del_res = normal_aide0.delegate.delegate(amount=del_amt, balance_type=1, private_key=del_pk)
+            assert del_res['code'] == 0
+
+            restricting_contract_2 = normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)
+            logger.info(f"{i} - restricting_contract_2: {restricting_contract_2}")
+
+        delegate_restr_info = normal_aide0.restricting.get_restricting_info(del_addr)
+        logger.info(f"{i} - delegate_restr_info: {delegate_restr_info}")
+
+        amt_before = normal_aide0.platon.get_balance(del_addr)
+        wait_settlement(normal_aide0)
+        amt_last = normal_aide0.platon.get_balance(del_addr)
+        if i < 3:
+            assert normal_aide0.delegate.withdrew_delegate(del_amt, StakingBlockNum,
+                                                           private_key=del_pk)['code'] == 0
+            restricting_contract_3 = normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)
+            logger.info(f"{i} - restricting_contract_3: {restricting_contract_3}")
+
+        withdrew_delegate_restr_info = normal_aide0.restricting.get_restricting_info(del_addr)
+        logger.info(f"{i} - withdrew_delegate_restr_info: {withdrew_delegate_restr_info}")
+
+        if i < 2:
+            # 锁仓计划里还有钱，会正常释放金额 至账户
+            assert amt_last - amt_before == del_amt
+            # 锁仓合约钱的变化
+            # 1. 拿去委托会扣 200
+            # 2. 过了结算周期 会自动释放 200
+            assert restricting_contract_1 - restricting_contract_2 == del_amt
+            assert restricting_contract_2 - restricting_contract_3 == del_amt
+
+        elif i == 2:
+            assert restricting_contract_1 - restricting_contract_2 == del_amt
+            assert restricting_contract_2 == restricting_contract_3
+            expect_data = {'plans': {'old_value_len': 3, 'new_value_len': 2},
+                           'debt': {"old_value": 0, "new_value": BD.delegate_limit * 20}}
+            Assertion.assert_restr_amt(delegate_restr_info, withdrew_delegate_restr_info, expect_data)
+
+        elif i == 3:
+            expect_data = {'plans': {'old_value_len': 2, 'new_value_len': 1},
+                           'debt': {"old_value": BD.delegate_limit * 20, "new_value": BD.delegate_limit * 40}}
+            Assertion.assert_restr_amt(delegate_restr_info, withdrew_delegate_restr_info, expect_data)
+
+        elif i == 4:
+            expect_data = {'debt': {"old_value": BD.delegate_limit * 40, "new_value": BD.delegate_limit * 60}}
+            Assertion.assert_restr_amt(delegate_restr_info, withdrew_delegate_restr_info, expect_data)
