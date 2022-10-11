@@ -153,7 +153,7 @@ def test_withdrew_staking(create_lock_free_amt):
         wait_settlement(normal_aide1)
     else:
         wait_settlement(normal_aide1, 1)
-    logger.info(f"被惩罚 节点质押金额 > staking_limit, 节点状态恢复正常")
+    normal_aide0.node.start()
     candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
     assert candidate_info.Status == 35
 
