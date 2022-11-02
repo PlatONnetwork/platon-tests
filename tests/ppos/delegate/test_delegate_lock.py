@@ -3939,6 +3939,8 @@ class TestLoopDelegate:
             redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0)
         assert red_acc_amt - acc_amt_before < BD.von_min
         logger.info(f"最后账户余额: {red_acc_amt}")
+        logger.info(f"质押合约地址金额：{normal_aide0.platon.get_balance(normal_aide0.staking.contract_address)}")
+        logger.info(f"锁仓合约地址金额：{normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)}")
         return red_acc_amt
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
