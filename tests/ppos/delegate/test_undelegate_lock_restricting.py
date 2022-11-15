@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import platon_utils
 import pytest
+import web3
 from loguru import logger
 from platon._utils.error_code import ERROR_CODE
 
@@ -485,3 +486,63 @@ def test_undelegate_lock_gas_insufficient(create_lock_free_amt):
     with pytest.raises(ValueError) as exception_info:
         normal_aide0.delegate.redeem_delegate(private_key=normal_aide0_namedtuple.del_pk)
     assert str(exception_info.value) == "{'code': -32000, 'message': 'insufficient funds for gas * price + value'}"
+
+
+@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+@pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
+def test_9999(create_lock_mix_amt_unlock_eq):
+    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple = create_lock_mix_amt_unlock_eq
+
+    lockup_amount = BaseData.delegate_amount
+    plan = [{'Epoch': 3, 'Amount': lockup_amount}, {'Epoch': 4, 'Amount': lockup_amount}]
+    normal_aide0.restricting.restricting(normal_aide0_namedtuple.del_addr, plan)
+    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                   private_key=normal_aide0_namedtuple.del_pk)
+
+    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
+                                   private_key=normal_aide0_namedtuple.del_pk)
+
+    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=3,
+                                   private_key=normal_aide0_namedtuple.del_pk)
+
+    wait_settlement(normal_aide0)
+
+    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+                                   private_key=normal_aide0_namedtuple.del_pk)
+
+    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
+                                   private_key=normal_aide0_namedtuple.del_pk)
+
+    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=3,
+                                   private_key=normal_aide0_namedtuple.del_pk)
+
+    del_info = normal_aide0.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)
+    print(del_info)
+
+    event = normal_aide0.delegate.withdrew_delegate(amount=normal_aide0.web3.toVon(5999, 'lat'),
+                                                    private_key=normal_aide0_namedtuple.del_pk)
+    print(event)
+
+
+def test_777777(normal_aide):
+    """
+    测试 锁定期再委托和领取委托金gas费用
+    @Desc:
+        -创建锁定期 只有自由金额
+        -计算锁定期委托gas费用，锁定期委托金再委托时自定义gas
+        -计算委托金领取gas费用，领取委托金时自定义gas
+    """
+    normal_aide0_namedtuple = create_sta_del(normal_aide)
+
+    wait_settlement(normal_aide)
+
+    print(normal_aide.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)['CumulativeIncome'])
+    print(normal_aide.delegate.get_delegate_reward(normal_aide0_namedtuple.del_addr)[0]['reward'])
+
+    wait_settlement(normal_aide)
+    normal_aide.delegate.withdrew_delegate(amount=BaseData.delegate_limit * 50, private_key=normal_aide0_namedtuple.del_pk)
+    print(normal_aide.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)['CumulativeIncome'])
+    print(normal_aide.delegate.get_delegate_reward(normal_aide0_namedtuple.del_addr)[0]['reward'])
+
+
+
