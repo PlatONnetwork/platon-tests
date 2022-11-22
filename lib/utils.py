@@ -125,3 +125,10 @@ def p_get_delegate_info(aide, del_addr, aide_nt):
     del_info = aide.delegate.get_delegate_info(del_addr, aide_nt.node_id, aide_nt.StakingBlockNum)
     logger.info(f"delegate_info: {del_info}")
     return del_info
+
+
+def new_account(aide, balance: int = 0):
+    account = aide.platon.account.create(hrp=aide.hrp)
+    if balance:
+        aide.transfer.transfer(account.address, balance)
+    return account

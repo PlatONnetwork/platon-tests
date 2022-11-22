@@ -1,7 +1,7 @@
 import math
 from typing import Literal
 
-from lib.account import MAIN_ACCOUNT
+from setting.account import MAIN_ACCOUNT
 from platon_env.chain import Chain
 
 from lib.aide import Aide

@@ -1,6 +1,6 @@
 from lib.funcs import wait_settlement
 from tests.conftest import get_datahash
-from lib.account import new_account
+from setting.account import new_account
 
 
 def test_sendRawTransaction(normal_aide):

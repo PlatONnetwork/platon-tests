@@ -5,7 +5,7 @@ from platon_aide.economic import Economic
 
 from lib import utils
 from lib.funcs import wait_settlement
-from lib.account import new_account
+from setting.account import new_account
 
 
 def create_restricting_plan(aide):

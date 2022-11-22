@@ -5,7 +5,7 @@ import pytest
 from platon._utils.error_code import ERROR_CODE
 
 from lib.funcs import wait_settlement
-from lib.account import new_account
+from setting.account import new_account
 from loguru import logger
 
 
