@@ -90,41 +90,65 @@ def parse_lock_info(data):
     return data
 
 
-def p_get_delegate_lock_info(aide, aide_nt):
-    """
-    aide_nt.del_addr的锁定期信息
-    @param aide: 发起查询的aide对象
-    @param aide_nt: 查询aide_nt.del_addr的锁定期信息
-    @return: aide_nt.del_addr的锁定期信息
-    """
-    lock_info = aide.delegate.get_delegate_lock_info(address=aide_nt.del_addr)
-    logger.info(f"lock_info: {lock_info}")
-    return lock_info
+class PrintInfo:
 
+    @staticmethod
+    def p_get_delegate_lock_info(aide, aide_nt):
+        """
+        aide_nt.del_addr的锁定期信息
+        @param aide: 发起查询的aide对象
+        @param aide_nt: 查询aide_nt.del_addr的锁定期信息
+        @return: aide_nt.del_addr的锁定期信息
+        """
+        lock_info = aide.delegate.get_delegate_lock_info(address=aide_nt.del_addr)
+        logger.info(f"lock_info: {lock_info}")
+        return lock_info
 
-def p_get_restricting_info(aide, aide_nt):
-    """
-    aide_nt.del_addr的锁仓计划
-    @param aide: 发起查询的aide对象
-    @param aide_nt: 查询aide_nt.del_addr的锁仓计划
-    @return: aide_nt.del_addr的锁仓计划
-    """
-    restr_info = aide.restricting.get_restricting_info(aide_nt.del_addr)
-    logger.info(f'restr_info: {restr_info}')
-    return restr_info
+    @staticmethod
+    def p_get_restricting_info(aide, aide_nt):
+        """
+        aide_nt.del_addr的锁仓计划
+        @param aide: 发起查询的aide对象
+        @param aide_nt: 查询aide_nt.del_addr的锁仓计划
+        @return: aide_nt.del_addr的锁仓计划
+        """
+        restr_info = aide.restricting.get_restricting_info(aide_nt.del_addr)
+        logger.info(f'restr_info: {restr_info}')
+        return restr_info
 
+    @staticmethod
+    def p_get_delegate_info(aide, del_addr, aide_nt):
+        """
+        查询del_addr 在 aide_nt.node_id 的委托信息
+        @param aide: 发起查询的aide对象
+        @param del_addr: 查询地址
+        @param aide_nt: 包含需查询的节点ID 和 节点质押块高
+        @return: del_addr 在 aide_nt.node_id 的委托信息
+        """
+        del_info = aide.delegate.get_delegate_info(del_addr, aide_nt.node_id, aide_nt.StakingBlockNum)
+        logger.info(f"delegate_info: {del_info}")
+        return del_info
 
-def p_get_delegate_info(aide, del_addr, aide_nt):
-    """
-    查询del_addr 在 aide_nt.node_id 的委托信息
-    @param aide: 发起查询的aide对象
-    @param del_addr: 查询地址
-    @param aide_nt: 包含需查询的节点ID 和 节点质押块高
-    @return: del_addr 在 aide_nt.node_id 的委托信息
-    """
-    del_info = aide.delegate.get_delegate_info(del_addr, aide_nt.node_id, aide_nt.StakingBlockNum)
-    logger.info(f"delegate_info: {del_info}")
-    return del_info
+    @staticmethod
+    def p_get_candidate_info(run_aide, query_aide):
+        """
+        查询并打印 node_id 质押信息
+        @param run_aide: 存活aide
+        @param query_aide: 查询aide
+        """
+        candidate_info = run_aide.staking.get_candidate_info(node_id=query_aide.node.node_id)
+        logger.info(f"{query_aide.node}: {candidate_info}")
+        return candidate_info
+
+    @staticmethod
+    def p_withdrew_delegate(run_aide, withdrew_amt, withdrew_aide_nt, del_pk):
+        """@return: 赎回委托数据中data"""
+        response = run_aide.delegate.withdrew_delegate(withdrew_amt, withdrew_aide_nt.StakingBlockNum,
+                                                       node_id=withdrew_aide_nt.node_id,
+                                                       private_key=del_pk)
+        logger.info(f'withdrew_delegate: {response}')
+        assert response['code'] == 0
+        return response.data
 
 
 def new_account(aide, balance: int = 0):
