@@ -15,7 +15,7 @@ from platon._utils.error_code import ERROR_CODE
 
 from lib.assertion import Assertion
 from lib.basic_data import BaseData as BD
-from lib.funcs import wait_settlement, wait_consensus
+from lib.utils import wait_settlement, wait_consensus
 from lib.utils import get_pledge_list, PrintInfo as PF
 from tests.conftest import generate_account, create_sta_del, create_sta_del_account
 

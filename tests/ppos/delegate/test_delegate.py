@@ -7,7 +7,7 @@ import pytest
 from platon._utils.error_code import ERROR_CODE
 
 from setting.account import REWARD_ADDRESS, new_account
-from lib.funcs import wait_settlement, wait_consensus
+from lib.utils import wait_settlement, wait_consensus
 from lib.utils import get_pledge_list
 
 

@@ -4,7 +4,7 @@ from loguru import logger
 from platon_aide.economic import Economic
 
 from lib import utils
-from lib.funcs import wait_settlement
+from lib.utils import wait_settlement
 from setting.account import new_account
 
 

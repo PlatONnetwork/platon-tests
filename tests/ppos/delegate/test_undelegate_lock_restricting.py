@@ -11,7 +11,7 @@ from platon._utils.error_code import ERROR_CODE
 
 from lib.assertion import Assertion
 from lib.basic_data import BaseData
-from lib.funcs import wait_settlement
+from lib.utils import wait_settlement
 # from lib.utils import p_get_delegate_lock_info, p_get_restricting_info, p_get_delegate_info
 from lib.utils import get_dynamic_gas_parameter
 from tests.conftest import create_sta_del

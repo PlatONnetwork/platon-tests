@@ -3,7 +3,7 @@ from loguru import logger
 
 from lib.account import CDF_ACCOUNT
 from lib.basic_data import BaseData
-from lib.funcs import wait_settlement
+from lib.utils import wait_settlement
 from tests.conftest import create_sta_del, create_sta_del_account
 
 

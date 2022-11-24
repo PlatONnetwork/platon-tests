@@ -4,7 +4,7 @@ from collections import namedtuple
 import pytest
 from platon._utils.error_code import ERROR_CODE
 
-from lib.funcs import wait_settlement
+from lib.utils import wait_settlement
 from setting.account import new_account
 from loguru import logger
 

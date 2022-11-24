@@ -1,8 +1,99 @@
+import decimal
 import time
-
 import rlp
+import math
+from typing import Literal, Union
 from loguru import logger
+from platon import Web3
+from platon_account.signers.local import LocalAccount
+from platon_utils import to_von
+
+from setting.account import MAIN_ACCOUNT
+
+from platon_aide import Aide
 from platon_aide.utils import ec_recover
+from platon_env.chain import Chain
+
+NO_PROPOSAL = 'no proposal'
+CONDITIONS = set(NO_PROPOSAL)  # 方便用例fixture使用
+
+
+def assert_chain(chain, condition):
+    """ 判断chain是否符合条件
+    """
+    if not condition:
+        return True
+
+    # 是否存在提案
+    if condition == NO_PROPOSAL:
+        pass
+
+    return False
+
+
+def new_account(aide: Aide, balance=0, restricting=0) -> LocalAccount:
+    """ 创建账户，并给账户转入金额
+    注意：restricting代表锁仓计划，而非锁仓金额
+    """
+    account = aide.platon.account.create(hrp=aide.hrp)
+
+    if balance:
+        aide.transfer.transfer(account.address, balance)
+    if restricting:
+        aide.restricting.restricting(account.address, restricting)
+
+    return account
+
+
+def lat(number: Union[int, float, str, decimal.Decimal]):
+    return to_von(number, unit='lat')
+
+
+def get_switchpoint_by_settlement(aide, number=0):
+    """
+    Get the last block of the current billing cycle
+    :param node: node object
+    :param number: number of billing cycles
+    :return:
+    """
+    block_number = aide.economic.epoch_blocks * number
+    tmp_current_block = aide.platon.block_number
+    current_end_block = math.ceil(
+        tmp_current_block / aide.economic.epoch_blocks) * aide.economic.epoch_blocks + block_number
+    return current_end_block
+
+
+def wait_settlement(aide, settlement=0):
+    """
+    Waiting for a billing cycle to settle
+    :param node:
+    :param number: number of billing cycles
+    :return:
+    """
+    end_block = get_switchpoint_by_settlement(aide, settlement)
+    aide.wait_block(end_block)
+
+
+def get_switchpoint_by_consensus(aide, consensus=0):
+    """
+    Get the last block of the current billing cycle
+    :param node: node object
+    :param consensus: consensus of billing cycles
+    :return:
+    """
+    block_number = aide.economic.consensus_blocks * consensus
+    tmp_current_block = aide.platon.block_number
+    current_end_block = math.ceil(
+        tmp_current_block / aide.economic.consensus_blocks) * aide.economic.consensus_blocks + block_number
+    return current_end_block
+
+
+def wait_consensus(aide, consensus=0):
+    """
+    Waiting for a consensus round to end
+    """
+    end_block = get_switchpoint_by_consensus(aide, consensus)
+    aide.wait_block(end_block)
 
 
 def get_pledge_list(func, nodeid=None) -> list:
@@ -116,7 +207,6 @@ class PrintInfo:
         logger.info(f'restr_info: {restr_info}')
         return restr_info
 
-    @staticmethod
     def p_get_delegate_info(aide, del_addr, aide_nt):
         """
         查询del_addr 在 aide_nt.node_id 的委托信息
@@ -149,10 +239,3 @@ class PrintInfo:
         logger.info(f'withdrew_delegate: {response}')
         assert response['code'] == 0
         return response.data
-
-
-def new_account(aide, balance: int = 0):
-    account = aide.platon.account.create(hrp=aide.hrp)
-    if balance:
-        aide.transfer.transfer(account.address, balance)
-    return account

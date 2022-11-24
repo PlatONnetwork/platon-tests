@@ -1,4 +1,4 @@
-from lib.funcs import wait_settlement
+from lib.utils import wait_settlement
 from tests.conftest import get_datahash
 from setting.account import new_account
 

@@ -6,8 +6,8 @@ import pytest
 from loguru import logger
 
 from setting import setting
-from utils.blockchain import max_byzantine_node, get_block_number, check_block, check_stop_check
-from utils.assertion import Assertion
+from lib.utils.blockchain import max_byzantine_node, get_block_number, check_block, check_stop_check
+from lib.utils.assertion import Assertion
 
 
 @allure.title("start all nodes normally")
