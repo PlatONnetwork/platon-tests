@@ -3,7 +3,7 @@ from loguru import logger
 from platon._utils.error_code import ERROR_CODE
 
 from lib.account import CDF_ACCOUNT
-from tests.conftest import generate_account
+from tests.conftest import new_account
 
 
 @pytest.mark.P1
@@ -27,7 +27,7 @@ def test_IV_001_002_003_010(init_aides):
 @pytest.mark.P1
 def test_IV_004(init_aide):
     """004:The initial verifier accepts the delegate"""
-    del_addr, del_pk = generate_account(init_aide, init_aide.web3.toVon(1, "lat"))
+    del_addr, del_pk = new_account(init_aide, init_aide.web3.toVon(1, "lat"))
     assert init_aide.delegate.delegate(0, private_key=del_pk).message == ERROR_CODE[301107]
 
 

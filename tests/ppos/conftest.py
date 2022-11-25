@@ -6,7 +6,7 @@ from loguru import logger
 from platon_env.chain import Chain
 from platon_env.genesis import Genesis
 
-from lib.utils import new_account
+from lib.utils import new_account, lat
 from lib.basic_data import BaseData
 
 from lib.utils import wait_settlement
@@ -18,6 +18,23 @@ def create_sta_del_account(aide, sta_amt, del_amt):
     sta_addr, sta_pk = new_account(aide, sta_amt)
     del_addr, del_pk = new_account(aide, del_amt)
     return sta_addr, sta_pk, del_addr, del_pk
+
+
+def create_sta_free_or_lock(aide, restr_plan=None, benefit_address=None):
+    """
+    创建自由/锁仓金额并质押节点
+    """
+    if not restr_plan:
+        sta_account = new_account(aide, lat(200000))
+        assert aide.staking.create_staking(benefit_address=benefit_address, private_key=sta_account.privateKey)['code'] == 0
+        logger.info("质押节点信息：{}".format(aide.staking.get_candidate_info()))
+    else:
+        sta_account = new_account(aide, balance=lat(200000), restricting=restr_plan)
+        logger.info("锁仓计划：{}".format(aide.restricting.get_restricting_info(sta_account.address)))
+        assert aide.staking.create_staking(balance_type=1, benefit_address=benefit_address, private_key=sta_account.privateKey)['code'] == 0
+        logger.info("质押节点信息：{}".format(aide.staking.get_candidate_info()))
+
+
 
 
 def create_sta_del(aide, restr_plan=None, mix=False, sta_amt=None, reward_per=0):

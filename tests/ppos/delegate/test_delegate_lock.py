@@ -16,8 +16,8 @@ from platon._utils.error_code import ERROR_CODE
 from lib.assertion import Assertion
 from lib.basic_data import BaseData as BD
 from lib.utils import wait_settlement, wait_consensus
-from lib.utils import get_pledge_list, PrintInfo as PF
-from tests.conftest import generate_account, create_sta_del, create_sta_del_account
+from lib.utils import get_pledge_list, new_account, PrintInfo as PF
+from tests.ppos.conftest import create_sta_del_account, create_sta_del
 
 
 # logger.add("logs/case_{time}.log", rotation="500MB")
@@ -107,7 +107,7 @@ def wait_consensus_assert_stop_node_status(run_aide, stop_aide, del_pk, wait_num
 
 def test_ghost_bug_001(normal_aide):
     """赎回质押后再次进行质押"""
-    sta_addr, sta_pk = generate_account(normal_aide, BD.staking_limit * 5)
+    sta_addr, sta_pk = new_account(normal_aide, BD.staking_limit * 5)
     assert normal_aide.staking.create_staking(amount=BD.staking_limit * 2, benefit_address=sta_addr,
                                               private_key=sta_pk)['code'] == 0
     wait_settlement(normal_aide)

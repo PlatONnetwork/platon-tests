@@ -31,12 +31,11 @@ def assert_chain(chain, condition):
     return False
 
 
-def new_account(aide: Aide, balance=0, restricting=0) -> LocalAccount:
+def new_account(aide: Aide, balance=0, restricting=None) -> LocalAccount:
     """ 创建账户，并给账户转入金额
     注意：restricting代表锁仓计划，而非锁仓金额
     """
     account = aide.platon.account.create(hrp=aide.hrp)
-
     if balance:
         aide.transfer.transfer(account.address, balance)
     if restricting:

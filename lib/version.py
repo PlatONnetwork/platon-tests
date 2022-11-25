@@ -1,6 +1,6 @@
 import os
 
-from setting.setting import PIP_BIN_DIR
+
 
 
 class Version:
@@ -22,6 +22,7 @@ class Version:
         return [self.major, self.minor, self.patch]
 
     def path(self):
+        from setting.setting import PIP_BIN_DIR
         return os.path.join(PIP_BIN_DIR, f'{self}/platon')
 
     def next_patch_version(self):
