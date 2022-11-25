@@ -309,32 +309,32 @@ def test_zero_execution_block_check_incentive_pool(normal_nodes):
          -启动私链，账户余额200000，质押节点10000
          -停止节点，等待节点零出块，查看激励池金额
      """
-    aide = normal_nodes[0].aide
-    aide1 = normal_nodes[1].aide
+    node = normal_nodes[0]
+    node1 = normal_nodes[1]
 
-    create_sta_free_or_lock(aide)
+    create_sta_free_or_lock(node.aide)
 
-    wait_settlement(aide)
+    wait_settlement(node.aide)
 
-    block_reward = aide.staking.get_block_reward()
-    staking_reward_total = aide.staking.get_staking_reward()
+    block_reward = node.aide.staking.get_block_reward()
+    staking_reward_total = node.aide.staking.get_staking_reward()
     logger.info("block_reward: {} staking_reward: {}".format(block_reward, staking_reward_total))
     # verifier_num = normal_aides[0].calculator.get_verifier_count()
     # staking_reward = int(Decimal(str(staking_reward_total)) / Decimal(str(verifier_num)))
     logger.info("停止节点")
-    normal_nodes[0].stop()
+    node.stop()
 
-    incentive_pool_balance = aide1.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
+    incentive_pool_balance = node1.aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
     logger.info("激励池金额：{}".format(incentive_pool_balance))
-    wait_settlement(aide1)
+    wait_settlement(node1.aide)
 
-    blocknumber = aide1.calculator.get_block_count(normal_nodes[0].node_id)
+    blocknumber = node1.aide.calculator.get_block_count(node.node_id)
     block_reward_total = blocknumber * Decimal(str(block_reward))
     logger.info("节点出块奖励：{}".format(block_reward_total))
 
-    penalty_amount = int(Decimal(str(block_reward)) * Decimal(str(aide1.economic.slashing.slashBlocksReward)))
+    penalty_amount = int(Decimal(str(block_reward)) * Decimal(str(node1.aide.economic.slashing.slashBlocksReward)))
     logger.info("零出块处罚金额：{}".format(penalty_amount))
-    incentive_pool_balance1 = aide1.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
+    incentive_pool_balance1 = node1.aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
     logger.info("激励池金额：{}".format(incentive_pool_balance1))
 
     assert incentive_pool_balance1 == incentive_pool_balance + penalty_amount - block_reward_total
