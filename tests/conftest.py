@@ -2,14 +2,13 @@ import os.path
 from random import choice
 
 import pytest
-from platon_account.signers.local import LocalAccount
 from platon_aide import Aide
 from platon_aide.economic import Economic
 from platon_env import Node
 from platon_env.chain import Chain
-from setting.account import MAIN_ACCOUNT
 
 from lib.utils import assert_chain
+from setting.account import MAIN_ACCOUNT
 
 
 @pytest.fixture
@@ -46,13 +45,34 @@ def nodes(chain) -> [Node]:
 
 
 @pytest.fixture
+def normal_nodes(chain) -> [Node]:
+    return chain.normal_nodes
+
+
+@pytest.fixture
 def init_nodes(chain) -> [Node]:
     return chain.init_nodes
 
 
 @pytest.fixture
-def normal_nodes(chain) -> [Node]:
-    return chain.normal_nodes
+def node(nodes) -> Node:
+    """ 返回一个随机节点的aide对象
+    """
+    return choice(nodes)
+
+
+@pytest.fixture
+def init_node(init_nodes) -> Node:
+    """ 返回一个创世节点的aide对象
+    """
+    return choice(init_nodes)
+
+
+@pytest.fixture
+def normal_node(normal_nodes) -> Node:
+    """ 返回一个普通节点的aide对象
+    """
+    return choice(normal_nodes)
 
 
 @pytest.fixture
