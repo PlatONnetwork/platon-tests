@@ -36,6 +36,10 @@ def chain(initializer, request) -> Chain:
     initializer.init(force=True)
     initializer.start()
 
+    # 重置默认账户
+    for node in chain.nodes:
+        node.aide.set_default_account(MAIN_ACCOUNT)
+
     return initializer
 
 
@@ -78,27 +82,18 @@ def normal_node(normal_nodes) -> Node:
 @pytest.fixture
 def aides(nodes) -> [Aide]:
     aides = [node.aide for node in nodes]
-    for aide in aides:
-        aide.set_default_account(MAIN_ACCOUNT)
-
     return aides
 
 
 @pytest.fixture
 def init_aides(init_nodes) -> [Aide]:
     aides = [node.aide for node in init_nodes]
-    for aide in aides:
-        aide.set_default_account(MAIN_ACCOUNT)
-
     return aides
 
 
 @pytest.fixture
 def normal_aides(normal_nodes) -> [Aide]:
     aides = [node.aide for node in normal_nodes]
-    for aide in aides:
-        aide.set_default_account(MAIN_ACCOUNT)
-
     return aides
 
 
