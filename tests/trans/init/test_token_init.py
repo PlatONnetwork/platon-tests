@@ -4,9 +4,11 @@ from decimal import Decimal
 import allure
 import pytest
 from loguru import logger
+from platon._utils.inner_contract import InnerContractEvent
+from platon_aide.utils import ec_recover
 from platon_env.genesis import Genesis
 
-from lib.utils import wait_settlement, lat
+from lib.utils import wait_settlement, lat, get_current_year_reward, wait_consensus
 from setting.account import *
 from setting.setting import GENESIS_FILE
 from tests.ppos.conftest import new_account, create_sta_free_or_lock
@@ -167,8 +169,10 @@ def test_transfer_to_internal_contract_account(normal_aide):
     slashing_balance = normal_aide.platon.get_balance(normal_aide.slashing.contract_address)
 
     normal_aide.transfer.transfer(normal_aide.staking.contract_address, lat(500), private_key=from_account.privateKey)
-    normal_aide.transfer.transfer(normal_aide.restricting.contract_address, lat(500), private_key=from_account.privateKey)
-    normal_aide.transfer.transfer(normal_aide.delegate.reward_contract_address, lat(500), private_key=from_account.privateKey)
+    normal_aide.transfer.transfer(normal_aide.restricting.contract_address, lat(500),
+                                  private_key=from_account.privateKey)
+    normal_aide.transfer.transfer(normal_aide.delegate.reward_contract_address, lat(500),
+                                  private_key=from_account.privateKey)
     normal_aide.transfer.transfer(normal_aide.slashing.contract_address, lat(500), private_key=from_account.privateKey)
 
     staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
@@ -214,8 +218,10 @@ def test_transfer_parallel_insufficient_account(normal_aide):
     nonce = normal_aide.platon.get_transaction_count(from_account.address)
     normal_aide.set_result_type('hash')
     try:
-        normal_aide.transfer.transfer(to_account.address, lat(500), txn={"nonce": nonce}, private_key=from_account.privateKey)
-        normal_aide.transfer.transfer(to_account.address, lat(500), txn={"nonce": nonce+1}, private_key=from_account.privateKey)
+        normal_aide.transfer.transfer(to_account.address, lat(500), txn={"nonce": nonce},
+                                      private_key=from_account.privateKey)
+        normal_aide.transfer.transfer(to_account.address, lat(500), txn={"nonce": nonce + 1},
+                                      private_key=from_account.privateKey)
     except Exception as e:
         logger.info("Use case success, exception information：{} ".format(str(e)))
     time.sleep(3)
@@ -256,7 +262,8 @@ def test_transfer_to_incentive_pool_check_profit(normal_aide):
      """
     from_account = new_account(normal_aide, lat(200000))
     benefit_account = new_account(normal_aide, 0)
-    normal_aide.staking.create_staking(benefit_address=benefit_account.address, reward_per=1000, private_key=from_account.privateKey)
+    normal_aide.staking.create_staking(benefit_address=benefit_account.address, reward_per=1000,
+                                       private_key=from_account.privateKey)
 
     wait_settlement(normal_aide)
 
@@ -302,6 +309,68 @@ def test_pledge_benefit_address_by_incentive_pool(normal_aide, use_type):
 
 
 @pytest.mark.P1
+def test_init_node_block_staking_reward(init_aide):
+    """
+     测试 私链启动后初始节点出块奖励和质押奖励
+    @Desc:
+     -犹豫期，查看质押节点收益地址是否有出块奖励和质押奖励
+     -生效期，查看质押节点收益地址是否有出块奖励和质押奖励
+     -生效期撤销质押，等待跨结算周期结束，查看质押节点的出块奖励和质押奖励
+    """
+    wait_consensus(init_aide)
+    logger.info("查看犹豫期收益地址金额")
+    ben_balance = init_aide.platon.get_balance(init_aide.staking.staking_info.BenefitAddress)
+    assert ben_balance == init_aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
+
+    wait_settlement(init_aide)
+    logger.info("查看生效期期收益地址金额")
+    ben_balance = init_aide.platon.get_balance(init_aide.staking.staking_info.BenefitAddress)
+    assert ben_balance == init_aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
+
+    wait_settlement(init_aide)
+    logger.info("查看跨结算周期收益地址金额")
+    ben_balance = init_aide.platon.get_balance(init_aide.staking.staking_info.BenefitAddress)
+    assert ben_balance == init_aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
+
+
+@pytest.mark.P2
+def test_init_node_re_pledge(init_aide):
+    """
+     测试 私链启动后初始验证人退出后重新质押
+     @Desc:
+         -启动私链，初始验证人退出
+         -等待节点退出后重新质押
+     """
+    assert init_aide.staking.withdrew_staking(private_key=CDF_ACCOUNT.privateKey)['code'] == 0
+
+    wait_settlement(init_aide, 3)
+    logger.info("节点完全退出")
+    assert init_aide.staking.get_candidate_info() is None
+
+    sta_account = new_account(init_aide, lat(300000))
+    ben_account = new_account(init_aide)
+    logger.info("节点重新质押")
+    assert init_aide.staking.create_staking(benefit_address=ben_account.address, private_key=sta_account.privateKey)[
+               'code'] == 0
+    start_bn = init_aide.platon.block_number
+
+    wait_settlement(init_aide)
+    assert init_aide.staking.withdrew_staking(private_key=sta_account.privateKey)['code'] == 0
+    block_reward, staking_reward = get_current_year_reward(init_aide)
+
+    wait_consensus(init_aide, 5)
+
+    blocknumber = init_aide.calculator.get_block_count(init_aide.staking.staking_info.NodeId, start_bn=start_bn)
+    block_reward_total = int(Decimal(str(blocknumber)) * Decimal(str(block_reward)))
+    logger.info("节点总出块奖励：{}".format(block_reward_total))
+
+    ben_balance = init_aide.platon.get_balance(ben_account.address)
+    logger.info("质押节点收益地址余额：{}".format(ben_balance))
+
+    assert ben_balance == block_reward_total + staking_reward
+
+
+@pytest.mark.P1
 def test_zero_execution_block_check_incentive_pool(normal_nodes):
     """
      测试 私链启动后自由/锁仓质押节点，构建节点零出块，查看激励池金额
@@ -312,15 +381,16 @@ def test_zero_execution_block_check_incentive_pool(normal_nodes):
     node = normal_nodes[0]
     node1 = normal_nodes[1]
 
-    create_sta_free_or_lock(node.aide)
+    from_account = new_account(node.aide, lat(300000))
+
+    # create_sta_free_or_lock(node.aide, )
+    assert node.aide.staking.create_staking(amount=lat(200000), private_key=from_account.privateKey)['code'] == 0
+    staking_info = node.aide.staking.get_candidate_info()
 
     wait_settlement(node.aide)
 
-    block_reward = node.aide.staking.get_block_reward()
-    staking_reward_total = node.aide.staking.get_staking_reward()
-    logger.info("block_reward: {} staking_reward: {}".format(block_reward, staking_reward_total))
-    # verifier_num = normal_aides[0].calculator.get_verifier_count()
-    # staking_reward = int(Decimal(str(staking_reward_total)) / Decimal(str(verifier_num)))
+    block_reward, staking_reward = get_current_year_reward(node.aide)
+
     logger.info("停止节点")
     node.stop()
 
@@ -329,12 +399,136 @@ def test_zero_execution_block_check_incentive_pool(normal_nodes):
     wait_settlement(node1.aide)
 
     blocknumber = node1.aide.calculator.get_block_count(node.node_id)
-    block_reward_total = blocknumber * Decimal(str(block_reward))
+    block_reward_total = int(Decimal(str(blocknumber)) * Decimal(str(block_reward)))
     logger.info("节点出块奖励：{}".format(block_reward_total))
 
     penalty_amount = int(Decimal(str(block_reward)) * Decimal(str(node1.aide.economic.slashing.slashBlocksReward)))
+    if penalty_amount >= staking_info['Shares']:
+        penalty_amount = staking_info['Shares']
     logger.info("零出块处罚金额：{}".format(penalty_amount))
     incentive_pool_balance1 = node1.aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
     logger.info("激励池金额：{}".format(incentive_pool_balance1))
 
-    assert incentive_pool_balance1 == incentive_pool_balance + penalty_amount - block_reward_total
+    assert incentive_pool_balance1 == incentive_pool_balance + penalty_amount
+
+
+@pytest.mark.P1
+def test_normal_node_block_staking_reward(normal_aide):
+    """
+     测试 私链启动后质押节点出块奖励和质押奖励
+    @Desc:
+     -启动私链，账户余额200000，质押节点100000
+     -犹豫期，查看质押节点收益地址是否有出块奖励和质押奖励
+     -生效期，查看质押节点收益地址是否有出块奖励和质押奖励
+     -生效期撤销质押，等待跨结算周期结束，查看质押节点的出块奖励和质押奖励
+    """
+    ben_account = new_account(normal_aide)
+
+    sta_account = create_sta_free_or_lock(normal_aide, benefit_address=ben_account.address)
+
+    ben_balance = normal_aide.platon.get_balance(ben_account.address)
+    logger.info("质押节点犹豫期收益地址余额：{}".format(ben_balance))
+    assert ben_balance == 0
+
+    wait_settlement(normal_aide)
+
+    block_reward, staking_reward = get_current_year_reward(normal_aide)
+
+    assert normal_aide.staking.withdrew_staking(private_key=sta_account.privateKey)['code'] == 0
+
+    wait_consensus(normal_aide, 3)
+
+    ben_balance1 = normal_aide.platon.get_balance(ben_account.address)
+    logger.info("质押节点生效期收益地址余额：{}".format(ben_balance1))
+    assert ben_balance1 > ben_balance
+
+    logger.info("等待当前结算周期结束，统计出块奖励和质押奖励")
+    wait_consensus(normal_aide, 2)
+
+    blocknumber = normal_aide.calculator.get_block_count(normal_aide.staking.staking_info.NodeId)
+    block_reward_total = int(Decimal(str(blocknumber)) * Decimal(str(block_reward)))
+    logger.info("节点总出块奖励：{}".format(block_reward_total))
+
+    ben_balance2 = normal_aide.platon.get_balance(ben_account.address)
+    logger.info("质押节点收益地址余额：{}".format(ben_balance2))
+
+    assert ben_balance2 == block_reward_total + staking_reward
+
+
+@pytest.mark.P2
+def test_normal_node_edit_benifit_address(normal_aide):
+    """
+     测试 私链启动后修改收益地址查看出块奖励和质押奖励（节点出块中）
+    @Desc:
+     -启动私链，账户余额200000，质押节点100000
+     -当前共识轮节点出块中，修改节点收益地址
+     -查看节点的出块奖励和质押奖励金额
+    """
+    ben_account = new_account(normal_aide)
+    ben_account1 = new_account(normal_aide)
+
+    sta_account = create_sta_free_or_lock(normal_aide, benefit_address=ben_account.address)
+
+    wait_settlement(normal_aide)
+
+    block_reward, staking_reward = get_current_year_reward(normal_aide)
+
+    wait_consensus(normal_aide)
+
+    for i in range(40):
+        current_block = normal_aide.platon.block_number
+        node_id = ec_recover(normal_aide.platon.get_block(current_block))
+        if node_id == normal_aide.staking.staking_info.NodeId:
+            break
+        time.sleep(1)
+    normal_aide.staking.set_result_type('txn')
+    txn1 = normal_aide.staking.edit_candidate(benifit_address=ben_account1.address, private_key=sta_account.privateKey)
+    receipt = normal_aide.transfer.send_transaction(txn1, private_key=sta_account.privateKey, result_type='receipt')
+    assert InnerContractEvent().processReceipt(receipt)['code'] == 0
+
+    txn2 = normal_aide.staking.withdrew_staking(private_key=sta_account.privateKey)
+    receipt = normal_aide.transfer.send_transaction(txn2, private_key=sta_account.privateKey, result_type='receipt')
+    assert InnerContractEvent().processReceipt(receipt)['code'] == 0
+
+    wait_consensus(normal_aide, 4)
+
+    blocknumber = normal_aide.calculator.get_block_count(normal_aide.staking.staking_info.NodeId)
+    block_reward_total = int(Decimal(str(blocknumber)) * Decimal(str(block_reward)))
+    logger.info("节点总出块奖励：{}".format(block_reward_total))
+    ben_balance = normal_aide.platon.get_balance(ben_account.address)
+    ben_balance1 = normal_aide.platon.get_balance(ben_account1.address)
+
+    assert ben_balance + ben_balance1 == block_reward_total + staking_reward + int(
+        Decimal(str(txn1['gas'])) * Decimal(str(txn1['gasPrice']))) + int(
+        Decimal(str(txn2['gas'])) * Decimal(str(txn2['gasPrice'])))
+
+
+@pytest.mark.P1
+def test_init_block_staking_reward(init_aide):
+    """
+     测试 私链启动后，验证第一个结算周期区块奖励和质押奖励
+    @Desc:
+     -启动私链，计算第一个结算周期的出块奖励和质押奖励和查看接口返回的出块奖励和质押奖励是否一致
+    """
+    logger.info("链当前块高：{}".format(init_aide.platon.block_number))
+
+    incentive_pool_amount = init_aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT, 0)
+
+    annualcycle = init_aide.economic.increasing_epoch
+
+    block_proportion = str(init_aide.economic.reward.newBlockRate / 100)
+
+    verifier_num = init_aide.calculator.get_verifier_count()
+    print(init_aide.economic.epoch_consensus)
+    amount_per_settlement = int(Decimal(str(incentive_pool_amount)) / Decimal(str(annualcycle)))
+    total_block_rewards = int(Decimal(str(amount_per_settlement)) * Decimal(str(block_proportion)))
+    per_block_reward = int(Decimal(str(total_block_rewards)) / Decimal(str(init_aide.economic.epoch_blocks)))
+    staking_reward_total = amount_per_settlement - total_block_rewards
+    per_staking_reward = int(Decimal(str(staking_reward_total)) / Decimal(str(verifier_num)))
+
+    block_reward, staking_reward = get_current_year_reward(init_aide)
+
+    assert per_block_reward == block_reward
+    assert staking_reward == per_staking_reward
+
+

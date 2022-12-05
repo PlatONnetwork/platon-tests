@@ -4,6 +4,7 @@ from os.path import join
 import pytest
 from platon_env import Chain
 
+from setting.account import MAIN_ACCOUNT
 from setting.setting import BASE_DIR
 
 
@@ -24,8 +25,12 @@ def initializer(request) -> Chain:
         host.supervisor.clean()
     chain.install()
 
+    # 设置默认账户
+    for node in chain.nodes:
+        node.aide.set_default_account(MAIN_ACCOUNT)
+
     yield chain
-    chain.uninstall()
+    # chain.uninstall()
 
 
 @pytest.fixture

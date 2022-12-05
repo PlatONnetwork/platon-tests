@@ -1,18 +1,14 @@
 import decimal
-import time
-import rlp
 import math
-from typing import Literal, Union
+import time
+from typing import Union
+
+import rlp
 from loguru import logger
-from platon import Web3
 from platon_account.signers.local import LocalAccount
-from platon_utils import to_von
-
-from setting.account import MAIN_ACCOUNT
-
 from platon_aide import Aide
 from platon_aide.utils import ec_recover
-from platon_env.chain import Chain
+from platon_utils import to_von
 
 NO_PROPOSAL = 'no proposal'
 CONDITIONS = set(NO_PROPOSAL)  # 方便用例fixture使用
@@ -178,6 +174,38 @@ def parse_lock_info(data):
             item['Released'] = hex_to_int(item['Released'])
             item['RestrictingPlan'] = hex_to_int(item['RestrictingPlan'])
     return data
+
+
+def get_current_year_reward(aide):
+    """
+    Get the first year of the block reward, pledge reward
+    :return:
+    """
+    # if new_block_rate is None:
+    #     new_block_rate = self.genesis.economicModel.reward.newBlockRate
+    # # current_block = node.eth.blockNumber
+    # annualcycle = (self.additional_cycle_time * 60) // self.settlement_size
+    # annual_size = annualcycle * self.settlement_size
+    # # starting_block_height = math.floor(current_block / annual_size) * annual_size
+    # time.sleep(10)
+    # # amount = node.eth.getBalance(self.cfg.INCENTIVEPOOL_ADDRESS, starting_block_height)
+    # if amount is None:
+    #     amount = 262215742000000000000000000
+    # block_proportion = str(new_block_rate / 100)
+    # staking_proportion = str(1 - new_block_rate / 100)
+    # block_reward = int(Decimal(str(amount)) * Decimal(str(block_proportion)) / Decimal(str(annual_size))) - node.web3.toWei(1 , 'ether')
+    # staking_reward = int(
+    #     Decimal(str(amount)) * Decimal(str(staking_proportion)) / Decimal(str(annualcycle)) / Decimal(
+    #         str(verifier_num)))
+    # # staking_reward = amount - block_reward
+    block_reward = aide.staking.get_block_reward()
+    staking_reward_total = aide.staking.get_staking_reward()
+    logger.info("block_reward: {} staking_reward_total: {}".format(block_reward, staking_reward_total))
+    verifier_num = aide.calculator.get_verifier_count()
+    staking_reward = int(decimal.Decimal(str(staking_reward_total)) / decimal.Decimal(str(verifier_num)))
+    logger.info("质押奖励：{}".format(staking_reward))
+
+    return block_reward, staking_reward
 
 
 class PrintInfo:

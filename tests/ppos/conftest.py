@@ -34,7 +34,7 @@ def create_sta_free_or_lock(aide, restr_plan=None, benefit_address=None):
         assert aide.staking.create_staking(balance_type=1, benefit_address=benefit_address, private_key=sta_account.privateKey)['code'] == 0
         logger.info("质押节点信息：{}".format(aide.staking.get_candidate_info()))
 
-
+    return sta_account
 
 
 def create_sta_del(aide, restr_plan=None, mix=False, sta_amt=None, reward_per=0):
@@ -82,17 +82,17 @@ def create_sta_del(aide, restr_plan=None, mix=False, sta_amt=None, reward_per=0)
 
 
 @pytest.fixture(scope='module')
-def update_undelegate_freeze_duration(chain: Chain):
+def update_undelegate_freeze_duration(initializer: Chain):
     genesis = Genesis(GENESIS_FILE)
     genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 2
     new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
     genesis.save_as(new_gen_file)
 
-    yield chain, new_gen_file
+    yield initializer, new_gen_file
 
 
 @pytest.fixture(scope='module')
-def update_undelegate_freeze_duration_three(chain: Chain):
+def update_undelegate_freeze_duration_three(chain: Chain, recover):
     genesis = Genesis(GENESIS_FILE)
     genesis.data['economicModel']['staking']['unStakeFreezeDuration'] = 3
     genesis.data['economicModel']['staking']['unDelegateFreezeDuration'] = 3

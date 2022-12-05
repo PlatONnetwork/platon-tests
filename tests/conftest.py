@@ -37,7 +37,7 @@ def chain(initializer, request) -> Chain:
     initializer.start()
 
     # 重置默认账户
-    for node in chain.nodes:
+    for node in initializer.nodes:
         node.aide.set_default_account(MAIN_ACCOUNT)
 
     return initializer
