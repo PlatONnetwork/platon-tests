@@ -2,6 +2,7 @@ import time
 from collections import namedtuple
 
 import pytest
+from loguru import logger
 from platon._utils.error_code import ERROR_CODE
 
 from lib.utils import wait_settlement, new_account

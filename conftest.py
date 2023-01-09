@@ -4,7 +4,7 @@ from os.path import join
 import pytest
 from platon_env import Chain
 
-from setting.account import MAIN_ACCOUNT
+from setting.account import MAIN_ACCOUNT, CDF_ACCOUNT
 from setting.setting import BASE_DIR
 
 
@@ -26,7 +26,10 @@ def initializer(request) -> Chain:
     chain.install()
 
     # 设置默认账户
-    for node in chain.nodes:
+    for node in chain.init_nodes:
+        node.aide.set_default_account(CDF_ACCOUNT)
+
+    for node in chain.normal_nodes:
         node.aide.set_default_account(MAIN_ACCOUNT)
 
     yield chain
@@ -39,4 +42,3 @@ def recover(initializer):
     """
     yield
     initializer.install()
-    time.sleep(3)

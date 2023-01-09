@@ -1,4 +1,5 @@
 import os.path
+import time
 from random import choice
 
 import pytest
@@ -8,7 +9,7 @@ from platon_env import Node
 from platon_env.chain import Chain
 
 from lib.utils import assert_chain
-from setting.account import MAIN_ACCOUNT
+from setting.account import MAIN_ACCOUNT, CDF_ACCOUNT
 
 
 @pytest.fixture
@@ -35,9 +36,13 @@ def chain(initializer, request) -> Chain:
     initializer.stop()
     initializer.init(force=True)
     initializer.start()
+    time.sleep(3)   # 等待节点真正启动
 
     # 重置默认账户
-    for node in initializer.nodes:
+    for node in initializer.init_nodes:
+        node.aide.set_default_account(CDF_ACCOUNT)
+
+    for node in initializer.normal_nodes:
         node.aide.set_default_account(MAIN_ACCOUNT)
 
     return initializer

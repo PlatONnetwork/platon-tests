@@ -1,10 +1,9 @@
-import pytest
+from lib.account import CDF_ACCOUNT
 from loguru import logger
 
-from lib.account import CDF_ACCOUNT
 from lib.basic_data import BaseData
 from lib.utils import wait_settlement
-from tests.conftest import create_sta_del, create_sta_del_account
+from tests.conftest import create_sta_del_account
 
 
 def test_operatingThreshold_upward_adjustment(normal_aide, init_aides):
@@ -31,7 +30,7 @@ def test_operatingThreshold_upward_adjustment(normal_aide, init_aides):
     proposal = init_aides[0].govern.get_active_proposal(3)
 
     for aide in init_aides:
-        assert aide.govern.vote(proposal.ProposalID, 1, private_key=CDF_ACCOUNT.key)['code'] == 0
+        assert aide.govern.votes(proposal.ProposalID, 1, private_key=CDF_ACCOUNT.key)['code'] == 0
 
     normal_aide.wait_block(proposal.EndVotingBlock)
 

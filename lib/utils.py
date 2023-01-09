@@ -7,7 +7,7 @@ import rlp
 from loguru import logger
 from platon_account.signers.local import LocalAccount
 from platon_aide import Aide
-from platon_aide.utils import ec_recover
+from platon_aide.staking import StakingInfo
 from platon_utils import to_von
 
 NO_PROPOSAL = 'no proposal'
@@ -42,6 +42,19 @@ def new_account(aide: Aide, balance=0, restricting=None) -> LocalAccount:
 
 def lat(number: Union[int, float, str, decimal.Decimal]):
     return to_von(number, unit='lat')
+
+
+def is_staking_member(node: StakingInfo, nodes: [StakingInfo]):
+    """ 判断节点
+    """
+    node_id = node.NodeId
+    for n in nodes:
+        if n.NodeId == node_id:
+            return True
+
+    return False
+
+
 
 
 def get_switchpoint_by_settlement(aide, number=0):
@@ -150,8 +163,7 @@ def get_block_count_number(aide, node_id=None, current_block=None, roundnum=1):
     count = 0
     for i in range(block_namber):
         if current_block > 0:
-            block = aide.platon.get_block(current_block)
-            public_key = ec_recover(block)
+            public_key = aide.ec_recover(current_block)
             # node_id = get_pub_key(node.url, current_block)
             current_block = current_block - 1
             if node_id == public_key:

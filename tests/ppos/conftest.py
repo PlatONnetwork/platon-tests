@@ -8,7 +8,6 @@ from platon_env.genesis import Genesis
 
 from lib.utils import new_account, lat
 from lib.basic_data import BaseData
-
 from lib.utils import wait_settlement
 from lib.utils import PrintInfo as PF
 from setting.setting import GENESIS_FILE

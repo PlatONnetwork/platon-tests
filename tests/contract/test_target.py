@@ -1,11 +1,10 @@
-from platon_account import Account
-from loguru import logger
-import pytest
 import allure
-from platon_utils import to_bech32_address, to_checksum_address
+import pytest
+from platon_account import Account
+from platon_utils import to_bech32_address
 
 from setting.setting import *
-from tests.conftest import random_text, create_token_contract
+from tests.ppos.conftest import random_text, create_token_contract
 
 
 @allure.title("Create createtoken contract normally")

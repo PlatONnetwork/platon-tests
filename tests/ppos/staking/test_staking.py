@@ -5,8 +5,7 @@ import pytest
 from loguru import logger
 from platon._utils.error_code import ERROR_CODE
 
-# from lib.account import CDF_ACCOUNT
-# from tests.conftest import new_account
+
 from platon_env.genesis import Genesis
 
 from lib.utils import new_account, lat, get_current_year_reward

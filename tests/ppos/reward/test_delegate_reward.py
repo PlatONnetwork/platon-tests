@@ -1,7 +1,6 @@
 from typing import List
 
 from loguru import logger
-from platon_aide.economic import Economic
 
 from lib import utils
 from lib.utils import wait_settlement

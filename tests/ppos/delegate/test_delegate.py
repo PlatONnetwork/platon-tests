@@ -1,14 +1,12 @@
 import time
 
-from loguru import logger
-
 import allure
 import pytest
+from loguru import logger
 from platon._utils.error_code import ERROR_CODE
 
+from lib.utils import wait_settlement, wait_consensus, get_pledge_list, new_account
 from setting.account import REWARD_ADDRESS
-from lib.utils import wait_settlement, wait_consensus, new_account
-from lib.utils import get_pledge_list
 
 
 @allure.title("Query delegate parameter validation")

@@ -3,9 +3,9 @@ from loguru import logger
 from platon_env.genesis import Genesis
 from platon_env.utils import join_path
 
+from lib.utils import new_account
 from setting.account import CDF_ACCOUNT
 from setting.setting import GENESIS_FILE, BASE_DIR
-from lib.utils import new_account
 
 
 @pytest.mark.P3
@@ -127,9 +127,9 @@ def test_param_change(chain, init_aides, normal_aide, economic, recover, value):
     proposal = normal_aide.govern.get_active_proposal(3)
     assert proposal
     for aide in init_aides:
-        rec = aide.govern.vote(proposal.ProposalID, 1,
-                               private_key=CDF_ACCOUNT.key
-                               )
+        rec = aide.govern.votes(proposal.ProposalID, 1,
+                                private_key=CDF_ACCOUNT.key
+                                )
         assert rec.code == 0
     # todo: 增加提案生效前后,参数列表的检查
     normal_aide.wait_block(proposal.EndVotingBlock + 1)  # 参数提案：生效块高=结束投票块高+1

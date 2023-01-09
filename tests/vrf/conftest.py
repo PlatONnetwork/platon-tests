@@ -2,7 +2,6 @@ from typing import List
 
 import pytest
 from platon_aide import Aide
-
 # 将ABI中的bool值转为python的bool值
 from platon_aide.contract import Contract
 

@@ -1,13 +1,11 @@
-from eth_account import Account
-from loguru import logger
-import pytest
 import allure
+import pytest
+from eth_account import Account
 from platon_aide.contract import Contract
 # from platon_utils import to_bech32_address
 from web3 import Web3, HTTPProvider
 
 from setting import setting
-from setting.setting import *
 
 rpc = 'http://10.2.13.21:8545'
 
