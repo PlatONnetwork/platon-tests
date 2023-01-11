@@ -40,5 +40,6 @@ def initializer(request) -> Chain:
 def recover(initializer):
     """ 在用例运行结束后恢复环境，仅用于用例更改了环境的情况
     """
+    # initializer.uninstall()
     yield
     initializer.install()

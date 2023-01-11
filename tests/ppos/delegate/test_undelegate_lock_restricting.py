@@ -37,7 +37,7 @@ class TestRestrictingAndLockUp:
         normal_aide0_namedtuple = create_sta_del(normal_aide, plan)
         wait_settlement(normal_aide)
         staking_info = normal_aide.staking.staking_info
-        staking_balance = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
 
         assert normal_aide.delegate.withdrew_delegate(BaseData.delegate_amount, normal_aide0_namedtuple.StakingBlockNum,
                                                       private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
@@ -52,13 +52,13 @@ class TestRestrictingAndLockUp:
         lock_info = normal_aide.delegate.get_delegate_lock_info(normal_aide0_namedtuple.del_addr)
         assert lock_info['Locks'][0]['RestrictingPlan'] == BaseData.delegate_amount
 
-        staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance1)
         assert staking_balance == staking_balance1
 
         assert normal_aide.delegate.delegate(amount=lockup_amount, balance_type=3,
                                              private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
-        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance2)
         assert staking_balance1 == staking_balance2
 
@@ -79,7 +79,7 @@ class TestRestrictingAndLockUp:
         assert lock_info['Locks'] == []
         assert lock_info['RestrictingPlan'] == lockup_amount
 
-        staking_balance3 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance3 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance3)
         assert staking_balance2 == staking_balance3
 
@@ -93,7 +93,7 @@ class TestRestrictingAndLockUp:
         assert lock_info['Locks'] == []
         assert lock_info['RestrictingPlan'] == 0
         assert lock_info['Released'] == 0
-        staking_balance4 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance4 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance4)
         assert staking_balance3 - lockup_amount == staking_balance4
 
@@ -118,7 +118,7 @@ class TestRestrictingAndLockUp:
                                                           staking_block_identifier=normal_aide0_namedtuple.StakingBlockNum)
         assert del_info is not None
 
-        staking_balance = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance)
 
         assert normal_aide.delegate.withdrew_delegate(BaseData.delegate_amount, normal_aide0_namedtuple.StakingBlockNum,
@@ -135,7 +135,7 @@ class TestRestrictingAndLockUp:
         lock_info = normal_aide.delegate.get_delegate_lock_info(normal_aide0_namedtuple.del_addr)
         assert lock_info['Locks'][0]['RestrictingPlan'] == BaseData.delegate_amount
 
-        staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance1)
         assert staking_balance == staking_balance1
 
@@ -149,7 +149,7 @@ class TestRestrictingAndLockUp:
         lock_info = normal_aide.delegate.get_delegate_lock_info(normal_aide0_namedtuple.del_addr)
         assert lock_info['Locks'][0]['RestrictingPlan'] == lockup_amount
 
-        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance2)
         assert staking_balance1 == staking_balance2
 
@@ -163,7 +163,7 @@ class TestRestrictingAndLockUp:
         assert lock_info['Locks'] == []
         assert lock_info['RestrictingPlan'] == lockup_amount
 
-        staking_balance3 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance3 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance3)
         assert staking_balance2 == staking_balance3
 
@@ -183,7 +183,7 @@ class TestRestrictingAndLockUp:
         assert lock_info['RestrictingPlan'] == 0
         assert lock_info['Released'] == 0
 
-        staking_balance4 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance4 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance4)
         assert staking_balance3 - lockup_amount == staking_balance4
 
@@ -205,7 +205,7 @@ class TestRestrictingAndLockUp:
         normal_aide0_namedtuple = create_sta_del(normal_aide, plan)
         wait_settlement(normal_aide)
 
-        staking_balance = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance)
 
         assert normal_aide.delegate.withdrew_delegate(BaseData.delegate_amount, normal_aide0_namedtuple.StakingBlockNum,
@@ -218,7 +218,7 @@ class TestRestrictingAndLockUp:
         lock_info = normal_aide.delegate.get_delegate_lock_info(normal_aide0_namedtuple.del_addr)
         assert lock_info['Locks'][0]['RestrictingPlan'] == BaseData.delegate_amount
 
-        staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance1)
         assert staking_balance == staking_balance1
 
@@ -245,7 +245,7 @@ class TestRestrictingAndLockUp:
         assert lock_info['Locks'][0]['RestrictingPlan'] == lockup_amount
         assert lock_info['RestrictingPlan'] == 0
 
-        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance2)
         assert staking_balance1 == staking_balance2
 
@@ -267,7 +267,7 @@ class TestRestrictingAndLockUp:
         assert lock_info['Locks'][0]['RestrictingPlan'] == lockup_amount
         assert lock_info['RestrictingPlan'] == 0
 
-        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance2 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance1)
         assert staking_balance1 == staking_balance2
 
@@ -291,7 +291,7 @@ class TestRestrictingAndLockUp:
         print(del_info)
         assert del_info is not None
 
-        staking_balance3 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+        staking_balance3 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
         print(staking_balance3)
         assert staking_balance2 - lockup_amount == staking_balance3
 
@@ -462,7 +462,7 @@ def test_undelegate_lock_gas_insufficient(create_lock_free_amt):
     # 调用委托和领取委托接口
     del_balance = normal_aide0.platon.get_balance(normal_aide0_namedtuple.del_addr)
     del_amount = del_balance - (normal_aide0.platon.gas_price * 21000)
-    normal_aide0.transfer.transfer(normal_aide0.staking.default_account.address, del_amount,
+    normal_aide0.transfer.transfer(normal_aide0.staking.ADDRESS, del_amount,
                                    private_key=normal_aide0_namedtuple.del_pk)
     del_balance = normal_aide0.platon.get_balance(normal_aide0_namedtuple.del_addr)
     # normal_aide0.delegate.delegate(balance_type=3, private_key=normal_aide0_namedtuple.del_pk)
@@ -487,62 +487,62 @@ def test_undelegate_lock_gas_insufficient(create_lock_free_amt):
         normal_aide0.delegate.redeem_delegate(private_key=normal_aide0_namedtuple.del_pk)
     assert str(exception_info.value) == "{'code': -32000, 'message': 'insufficient funds for gas * price + value'}"
 
-
-@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
-@pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
-def test_9999(create_lock_mix_amt_unlock_eq):
-    normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple = create_lock_mix_amt_unlock_eq
-
-    lockup_amount = BaseData.delegate_amount
-    plan = [{'Epoch': 3, 'Amount': lockup_amount}, {'Epoch': 4, 'Amount': lockup_amount}]
-    normal_aide0.restricting.restricting(normal_aide0_namedtuple.del_addr, plan)
-    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
-                                   private_key=normal_aide0_namedtuple.del_pk)
-
-    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
-                                   private_key=normal_aide0_namedtuple.del_pk)
-
-    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=3,
-                                   private_key=normal_aide0_namedtuple.del_pk)
-
-    wait_settlement(normal_aide0)
-
-    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
-                                   private_key=normal_aide0_namedtuple.del_pk)
-
-    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
-                                   private_key=normal_aide0_namedtuple.del_pk)
-
-    normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=3,
-                                   private_key=normal_aide0_namedtuple.del_pk)
-
-    del_info = normal_aide0.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)
-    print(del_info)
-
-    event = normal_aide0.delegate.withdrew_delegate(amount=normal_aide0.web3.toVon(5999, 'lat'),
-                                                    private_key=normal_aide0_namedtuple.del_pk)
-    print(event)
-
-
-def test_777777(normal_aide):
-    """
-    测试 锁定期再委托和领取委托金gas费用
-    @Desc:
-        -创建锁定期 只有自由金额
-        -计算锁定期委托gas费用，锁定期委托金再委托时自定义gas
-        -计算委托金领取gas费用，领取委托金时自定义gas
-    """
-    normal_aide0_namedtuple = create_sta_del(normal_aide)
-
-    wait_settlement(normal_aide)
-
-    print(normal_aide.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)['CumulativeIncome'])
-    print(normal_aide.delegate.get_delegate_reward(normal_aide0_namedtuple.del_addr)[0]['reward'])
-
-    wait_settlement(normal_aide)
-    normal_aide.delegate.withdrew_delegate(amount=BaseData.delegate_limit * 50, private_key=normal_aide0_namedtuple.del_pk)
-    print(normal_aide.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)['CumulativeIncome'])
-    print(normal_aide.delegate.get_delegate_reward(normal_aide0_namedtuple.del_addr)[0]['reward'])
+#
+# @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+# @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
+# def test_9999(create_lock_mix_amt_unlock_eq):
+#     normal_aide0, normal_aide1, normal_aide0_namedtuple, normal_aide1_namedtuple = create_lock_mix_amt_unlock_eq
+#
+#     lockup_amount = BaseData.delegate_amount
+#     plan = [{'Epoch': 3, 'Amount': lockup_amount}, {'Epoch': 4, 'Amount': lockup_amount}]
+#     normal_aide0.restricting.restricting(normal_aide0_namedtuple.del_addr, plan)
+#     normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+#                                    private_key=normal_aide0_namedtuple.del_pk)
+#
+#     normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
+#                                    private_key=normal_aide0_namedtuple.del_pk)
+#
+#     normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=3,
+#                                    private_key=normal_aide0_namedtuple.del_pk)
+#
+#     wait_settlement(normal_aide0)
+#
+#     normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=1,
+#                                    private_key=normal_aide0_namedtuple.del_pk)
+#
+#     normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=0,
+#                                    private_key=normal_aide0_namedtuple.del_pk)
+#
+#     normal_aide0.delegate.delegate(amount=BaseData.delegate_amount, balance_type=3,
+#                                    private_key=normal_aide0_namedtuple.del_pk)
+#
+#     del_info = normal_aide0.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)
+#     print(del_info)
+#
+#     event = normal_aide0.delegate.withdrew_delegate(amount=normal_aide0.web3.toVon(5999, 'lat'),
+#                                                     private_key=normal_aide0_namedtuple.del_pk)
+#     print(event)
 
 
-
+# def test_777777(normal_aide):
+#     """
+#     测试 锁定期再委托和领取委托金gas费用
+#     @Desc:
+#         -创建锁定期 只有自由金额
+#         -计算锁定期委托gas费用，锁定期委托金再委托时自定义gas
+#         -计算委托金领取gas费用，领取委托金时自定义gas
+#     """
+#     normal_aide0_namedtuple = create_sta_del(normal_aide)
+#
+#     wait_settlement(normal_aide)
+#
+#     print(normal_aide.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)['CumulativeIncome'])
+#     print(normal_aide.delegate.get_delegate_reward(normal_aide0_namedtuple.del_addr)[0]['reward'])
+#
+#     wait_settlement(normal_aide)
+#     normal_aide.delegate.withdrew_delegate(amount=BaseData.delegate_limit * 50, private_key=normal_aide0_namedtuple.del_pk)
+#     print(normal_aide.delegate.get_delegate_info(normal_aide0_namedtuple.del_addr)['CumulativeIncome'])
+#     print(normal_aide.delegate.get_delegate_reward(normal_aide0_namedtuple.del_addr)[0]['reward'])
+#
+#
+#

@@ -8,6 +8,7 @@ from platon_aide.economic import Economic
 from platon_env import Node
 from platon_env.chain import Chain
 
+from lib.basic_data import BaseData
 from lib.utils import assert_chain
 from setting.account import MAIN_ACCOUNT, CDF_ACCOUNT
 
@@ -87,18 +88,21 @@ def normal_node(normal_nodes) -> Node:
 @pytest.fixture
 def aides(nodes) -> [Aide]:
     aides = [node.aide for node in nodes]
+    BaseData(aides).set_var_info()
     return aides
 
 
 @pytest.fixture
 def init_aides(init_nodes) -> [Aide]:
     aides = [node.aide for node in init_nodes]
+    BaseData(aides).set_var_info()
     return aides
 
 
 @pytest.fixture
 def normal_aides(normal_nodes) -> [Aide]:
     aides = [node.aide for node in normal_nodes]
+    BaseData(aides).set_var_info()
     return aides
 
 
@@ -106,6 +110,7 @@ def normal_aides(normal_nodes) -> [Aide]:
 def aide(aides) -> Aide:
     """ 返回一个随机节点的aide对象
     """
+    BaseData(aides).set_var_info()
     return choice(aides)
 
 
@@ -113,6 +118,7 @@ def aide(aides) -> Aide:
 def init_aide(init_aides) -> Aide:
     """ 返回一个创世节点的aide对象
     """
+    BaseData(init_aides).set_var_info()
     return choice(init_aides)
 
 
@@ -120,6 +126,7 @@ def init_aide(init_aides) -> Aide:
 def normal_aide(normal_aides) -> Aide:
     """ 返回一个普通节点的aide对象
     """
+    BaseData(normal_aides).set_var_info()
     return choice(normal_aides)
 
 

@@ -139,7 +139,7 @@ def test_createTokenContract_008(contract_aide, user_prikey):
     assert event_receipt.args.decimals == decimals
     assert event_receipt.args.cap == cap
     assert event_receipt.event == 'TokenCreated'
-    assert event_receipt.address == contract_address
+    assert event_receipt.address == ADDRESS
 
 
 @allure.title("Createtoken contract TokenCapChanged event verification")
@@ -162,7 +162,7 @@ def test_createTokenContract_009(contract_aide, user_prikey):
     assert event_receipt.args.oldCap == 0
     assert event_receipt.args.newCap == cap
     assert event_receipt.event == 'TokenCapChanged'
-    assert event_receipt.address == contract_address
+    assert event_receipt.address == ADDRESS
 
 
 
@@ -230,7 +230,7 @@ def test_setTokenCap_001(contract_aide):
     new_cap = 200000000
     receipt = contract_aide.contract.setTokenCap(contract_symbol, new_cap)
     assert receipt['from'] == contract_ower and receipt.status == 1
-    assert receipt.logs[0]['address'] == contract_address
+    assert receipt.logs[0]['address'] == ADDRESS
     new_token_cap = contract_aide.contract.getTokenCap(contract_symbol)
     assert new_token_cap == new_cap != cap
 
@@ -304,7 +304,7 @@ def test_setTokenFee_001(contract_aide):
     assert token_fee == 0
     receipt = contract_aide.contract.setTokenFee(contract_symbol, new_token_fee)
     assert receipt['from'] == contract_ower and receipt.status == 1
-    assert receipt.logs[0]['address'] == contract_address
+    assert receipt.logs[0]['address'] == ADDRESS
     new_token = contract_aide.contract.getTokenFee(contract_symbol)
     assert new_token == new_token_fee
 
@@ -318,7 +318,7 @@ def test_setTokenFee_002(contract_aide, symbol_bytes_lenght):
     token_fee = contract_aide.contract.getTokenFee(contract_symbol)
     receipt = contract_aide.contract.setTokenFee(contract_symbol, new_token_fee)
     assert receipt['from'] == contract_ower and receipt.status == 1
-    assert receipt.logs[0]['address'] == contract_address
+    assert receipt.logs[0]['address'] == ADDRESS
     token_fee = contract_aide.contract.getTokenFee(contract_symbol)
     assert token_fee == new_token_fee
 
@@ -563,14 +563,14 @@ def test_mintToken_009(contract_aide):
     tx_hash = '0x385c8ea0c63484ed791b6b540a1b62ce5c0abac466efa8a966def867d88a140f'
     receipt = contract_aide.contract.mintToken(tx_hash,account.address,account.address,contract_symbol,cap)
     assert receipt.status == 1 and receipt['from'] == account.address == contract_witness
-    token_contract_address = contract_aide.contract.getTokenContract(contract_symbol)
+    token_ADDRESS = contract_aide.contract.getTokenContract(contract_symbol)
     token_info = contract_aide.contract.getTokenInfo(contract_symbol)
     event_receipt = contract_aide.contract.AssetMinted(receipt)[0]
     assert event_receipt.args.txHash.hex() == tx_hash[2:]
     assert to_bech32_address(event_receipt.args.localAddress, 'lat') == account.address
     assert to_bech32_address(event_receipt.args.remoteAddress, 'lat') == account.address
     assert event_receipt.args.symbol == contract_symbol
-    assert event_receipt.args.tokenAddress == token_contract_address == token_info[0]
+    assert event_receipt.args.tokenAddress == token_ADDRESS == token_info[0]
     assert event_receipt.args.amount == cap
 
 
@@ -825,24 +825,24 @@ def test_getTokenInfo_003(contract_aide, symbol_bytes_lenght):
 @pytest.mark.P0
 def test_regTokenContract_001(contract_aide):
     # =erc20token地址,注册一次之后就不行了,如果失败就重新布合约换地址再跑
-    token_contract_address = 'lat1mac9q4d9hss3yvzuevt4lgjhf6zk7dtulc3lnc'
-    receipt = contract_aide.contract.regTokenContract(token_contract_address, txn={'gas': 2050000}, private_key=contract_ower_prikey)
-    assert receipt.status == 1 and receipt['from'] == contract_ower and receipt.logs[0].address == contract_address
+    token_ADDRESS = 'lat1mac9q4d9hss3yvzuevt4lgjhf6zk7dtulc3lnc'
+    receipt = contract_aide.contract.regTokenContract(token_ADDRESS, txn={'gas': 2050000}, private_key=contract_ower_prikey)
+    assert receipt.status == 1 and receipt['from'] == contract_ower and receipt.logs[0].address == ADDRESS
     event_receipt = contract_aide.contract.TokenCreated(receipt)[0]
-    assert to_bech32_address(event_receipt.args.tokenAddress, 'lat') == to_bech32_address(contract_aide.contract.getTokenContract('ETH'), 'lat') == token_contract_address
+    assert to_bech32_address(event_receipt.args.tokenAddress, 'lat') == to_bech32_address(contract_aide.contract.getTokenContract('ETH'), 'lat') == token_ADDRESS
     assert event_receipt.args.symbol == 'ETH'
     assert event_receipt.args.name == 'Platon ETH'
     assert event_receipt.args.decimals == 18
     assert event_receipt.args.cap == 9000000000000000000000000000
     assert event_receipt.event == 'TokenCreated'
-    assert event_receipt.address == contract_address
+    assert event_receipt.address == ADDRESS
 
     event_receipt = contract_aide.contract.TokenCapChanged(receipt)[0]
     assert event_receipt.args.symbol == 'ETH'
     assert event_receipt.args.oldCap == 0
     assert event_receipt.args.newCap == 9000000000000000000000000000
     assert event_receipt.event == 'TokenCapChanged'
-    assert event_receipt.address == contract_address
+    assert event_receipt.address == ADDRESS
 
 
 @allure.title("rollBackToken succeeded")

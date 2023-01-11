@@ -5,7 +5,6 @@ import allure
 import pytest
 from loguru import logger
 from platon._utils.inner_contract import InnerContractEvent
-from platon_aide.utils import ec_recover
 from platon_env.genesis import Genesis
 
 from lib.utils import wait_settlement, lat, get_current_year_reward, wait_consensus
@@ -35,10 +34,10 @@ def test_chain_init_token(chain, normal_aide):
     foundation_account = normal_aide.platon.get_balance(normal_aide.economic.innerAcc.platonFundAccount)
     assert foundation_account == 0
 
-    foundation_louckup_account = normal_aide.platon.get_balance(normal_aide.restricting.contract_address)
+    foundation_louckup_account = normal_aide.platon.get_balance(normal_aide.restricting.ADDRESS)
     assert foundation_louckup_account == 259096239000000000000000000
 
-    staking_contract_account = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+    staking_contract_account = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
     assert staking_contract_account == default_pledge_account
 
     incentive_pool_account = normal_aide.platon.get_balance(INCENTIVE_POOL_ACCOUNT)
@@ -163,22 +162,22 @@ def test_transfer_to_internal_contract_account(normal_aide):
          -启动私链账号余额10000，给punishment地址转 500 LAT,查看转账结果和余额
      """
     from_account = new_account(normal_aide, lat(10000))
-    staking_balance = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
-    restricting_balance = normal_aide.platon.get_balance(normal_aide.restricting.contract_address)
-    delegate_balance = normal_aide.platon.get_balance(normal_aide.delegate.contract_address)
-    slashing_balance = normal_aide.platon.get_balance(normal_aide.slashing.contract_address)
+    staking_balance = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
+    restricting_balance = normal_aide.platon.get_balance(normal_aide.restricting.ADDRESS)
+    delegate_balance = normal_aide.platon.get_balance(normal_aide.delegate.ADDRESS)
+    slashing_balance = normal_aide.platon.get_balance(normal_aide.slashing.ADDRESS)
 
-    normal_aide.transfer.transfer(normal_aide.staking.contract_address, lat(500), private_key=from_account.privateKey)
-    normal_aide.transfer.transfer(normal_aide.restricting.contract_address, lat(500),
+    normal_aide.transfer.transfer(normal_aide.staking.ADDRESS, lat(500), private_key=from_account.privateKey)
+    normal_aide.transfer.transfer(normal_aide.restricting.ADDRESS, lat(500),
                                   private_key=from_account.privateKey)
-    normal_aide.transfer.transfer(normal_aide.delegate.reward_contract_address, lat(500),
+    normal_aide.transfer.transfer(normal_aide.delegate.reward_ADDRESS, lat(500),
                                   private_key=from_account.privateKey)
-    normal_aide.transfer.transfer(normal_aide.slashing.contract_address, lat(500), private_key=from_account.privateKey)
+    normal_aide.transfer.transfer(normal_aide.slashing.ADDRESS, lat(500), private_key=from_account.privateKey)
 
-    staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
-    restricting_balance1 = normal_aide.platon.get_balance(normal_aide.restricting.contract_address)
-    delegate_balance1 = normal_aide.platon.get_balance(normal_aide.delegate.contract_address)
-    slashing_balance1 = normal_aide.platon.get_balance(normal_aide.slashing.contract_address)
+    staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
+    restricting_balance1 = normal_aide.platon.get_balance(normal_aide.restricting.ADDRESS)
+    delegate_balance1 = normal_aide.platon.get_balance(normal_aide.delegate.ADDRESS)
+    slashing_balance1 = normal_aide.platon.get_balance(normal_aide.slashing.ADDRESS)
 
     assert staking_balance1 == staking_balance + lat(500)
     assert restricting_balance1 == restricting_balance + lat(500)
@@ -197,11 +196,11 @@ def test_transfer_pledge_same_transaction(normal_aide):
     normal_aide.set_result_type('txn')
     data = normal_aide.staking.create_staking(private_key=from_account.privateKey)
     data['value'] = lat(500)
-    staking_balance = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+    staking_balance = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
     normal_aide.set_result_type('receipt')
-    normal_aide.staking.send_transaction(data, private_key=from_account.privateKey)
+    normal_aide.send_transaction(data, private_key=from_account.privateKey)
     # print(InnerContractEvent().processReceipt(receipt))
-    staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+    staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
     assert normal_aide.staking.get_candidate_info()
     assert staking_balance1 == staking_balance + normal_aide.economic.staking_limit + lat(500)
 
@@ -477,7 +476,7 @@ def test_normal_node_edit_benifit_address(normal_aide):
 
     for i in range(40):
         current_block = normal_aide.platon.block_number
-        node_id = ec_recover(normal_aide.platon.get_block(current_block))
+        node_id = normal_aide.ec_recover(normal_aide.platon.get_block(current_block))
         if node_id == normal_aide.staking.staking_info.NodeId:
             break
         time.sleep(1)

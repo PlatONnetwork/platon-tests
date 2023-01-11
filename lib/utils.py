@@ -8,6 +8,7 @@ from loguru import logger
 from platon_account.signers.local import LocalAccount
 from platon_aide import Aide
 from platon_aide.staking import StakingInfo
+from platon_aide.utils.utils import mock_duplicate_sign
 from platon_utils import to_von
 
 NO_PROPOSAL = 'no proposal'
@@ -157,12 +158,14 @@ def get_block_count_number(aide, node_id=None, current_block=None, roundnum=1):
     if current_block is None:
         current_block = aide.platon.block_number
     if node_id is None:
-        node_id = aide.staking._node_id
+        node_id = aide.node_id
 
     block_namber = aide.economic.consensus_blocks * roundnum
     count = 0
     for i in range(block_namber):
         if current_block > 0:
+            # block = aide.platon.get_block(current_block)
+            # print(block)
             public_key = aide.ec_recover(current_block)
             # node_id = get_pub_key(node.url, current_block)
             current_block = current_block - 1
@@ -220,6 +223,37 @@ def get_current_year_reward(aide):
     return block_reward, staking_reward
 
 
+def get_report_reward(aide, amount=None, penalty_ratio=None, proportion_ratio=None):
+    """
+    Gain income from double sign whistleblower and incentive pool
+    """
+    if not amount:
+        amount = aide.staking.staking_info.Shares
+    if not penalty_ratio:
+        penalty_ratio = aide.economic.slashing.slashFractionDuplicateSign
+    if not proportion_ratio:
+        proportion_ratio = aide.economic.slashing.duplicateSignReportReward
+        print(type(penalty_ratio), type(proportion_ratio))
+    penalty_reward = int(decimal.Decimal(str(amount)) * decimal.Decimal(str(penalty_ratio / 10000)))
+    proportion_reward = int(decimal.Decimal(str(penalty_reward)) * decimal.Decimal(str(proportion_ratio / 100)))
+    incentive_pool_reward = penalty_reward - proportion_reward
+    return proportion_reward, incentive_pool_reward
+
+
+def generate_evidence(node, evidence_type=1, report_block=None):
+    """
+    Generate double sign evidence according to node private key information
+    """
+    if report_block is None:
+        report_block = node.aide.platon.block_number
+        if report_block < 41:
+            report_block = 41
+            node.aide.wait_period('consensus')
+    evidence = mock_duplicate_sign(evidence_type, node.node_key, node.bls_prikey, report_block)
+
+    return evidence
+
+
 class PrintInfo:
 
     @staticmethod
@@ -265,8 +299,8 @@ class PrintInfo:
         @param run_aide: 存活aide
         @param query_aide: 查询aide
         """
-        candidate_info = run_aide.staking.get_candidate_info(node_id=query_aide.node.node_id)
-        logger.info(f"{query_aide.node}: {candidate_info}")
+        candidate_info = run_aide.staking.get_candidate_info(node_id=query_aide.node_id)
+        logger.info(f"{candidate_info}")
         return candidate_info
 
     @staticmethod

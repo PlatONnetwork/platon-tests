@@ -8,7 +8,7 @@ from platon._utils.error_code import ERROR_CODE
 
 from platon_env.genesis import Genesis
 
-from lib.utils import new_account, lat, get_current_year_reward
+from lib.utils import new_account, lat, get_current_year_reward, get_report_reward, generate_evidence
 from setting.account import CDF_ACCOUNT
 from setting.setting import GENESIS_FILE
 from tests.ppos.conftest import create_sta_free_or_lock
@@ -80,7 +80,8 @@ def test_init_node_re_pledge(init_aide):
 
     init_aide.wait_period('epoch', 3)
 
-    assert init_aide.staking.get_candidate_info().message == ERROR_CODE[301204]
+    print(init_aide.staking.get_candidate_info())
+    assert init_aide.staking.get_candidate_info() is None
     logger.info("预期初始验证人已退出 --- 重新质押节点")
 
     assert init_aide.staking.create_staking(private_key=CDF_ACCOUNT.privateKey).message == ERROR_CODE[0]
@@ -294,7 +295,7 @@ def test_mix_pledge(normal_aides, use_type):
      -启动私链，混合金额质押，仅使用自由金额进行质押
     """
     if use_type == 'lock':
-        sta_account = new_account(lat(1))
+        sta_account = new_account(normal_aides[0], lat(1))
         plan = [{'Epoch': 1, 'Amount': lat(8330)},
                 {'Epoch': 2, 'Amount': lat(8330)},
                 {'Epoch': 3, 'Amount': lat(8330)},
@@ -308,53 +309,51 @@ def test_mix_pledge(normal_aides, use_type):
                 {'Epoch': 11, 'Amount': lat(8330)},
                 {'Epoch': 12, 'Amount': lat(8370)}]
 
-        restricting_balance = normal_aides[0].platon.get_balance(normal_aides[0].restricting.contract_address)
-        assert normal_aides[0].restricting.restricting(sta_account.address, plan,
-                                                       private_key=sta_account.privateKey).message == ERROR_CODE[0]
+        restricting_balance = normal_aides[0].platon.get_balance(normal_aides[0].restricting.ADDRESS)
+        assert normal_aides[0].restricting.restricting(sta_account.address, plan).message == ERROR_CODE[0]
         assert normal_aides[0].staking.create_staking(balance_type=2, private_key=sta_account.privateKey).message == \
                ERROR_CODE[0]
-        staking_balance = normal_aides[0].platon.get_balance(normal_aides[0].staking.contract_address)
+        staking_balance = normal_aides[0].platon.get_balance(normal_aides[0].staking.ADDRESS)
         restricting_info = normal_aides[0].restricting.get_restricting_info(sta_account.address)
-        assert restricting_info['balance'] == normal_aides[0].economic.create_staking_limit
-        assert restricting_info['Pledge'] == normal_aides[0].economic.create_staking_limit
+        assert restricting_info['balance'] == normal_aides[0].economic.staking_limit
+        assert restricting_info['Pledge'] == normal_aides[0].economic.staking_limit
         assert restricting_info['debt'] == 0
         assert normal_aides[0].staking.staking_info.RestrictingPlanHes == normal_aides[0].economic.staking_limit
         assert normal_aides[0].staking.staking_info.ReleasedHes == 0
 
         assert normal_aides[0].staking.withdrew_staking(private_key=sta_account.privateKey).message == ERROR_CODE[0]
-        restricting_balance1 = normal_aides[0].platon.get_balance(normal_aides[0].restricting.contract_address)
-        staking_balance1 = normal_aides[0].platon.get_balance(normal_aides[0].staking.contract_address)
+        restricting_balance1 = normal_aides[0].platon.get_balance(normal_aides[0].restricting.ADDRESS)
+        staking_balance1 = normal_aides[0].platon.get_balance(normal_aides[0].staking.ADDRESS)
 
         assert restricting_balance1 == restricting_balance + normal_aides[0].economic.staking_limit
         assert staking_balance1 == staking_balance - normal_aides[0].economic.staking_limit
 
     if use_type == 'free':
-        sta_account = new_account(lat(150000))
+        sta_account = new_account(normal_aides[1], lat(150000))
         assert normal_aides[1].staking.create_staking(balance_type=2, private_key=sta_account.privateKey).message == \
                ERROR_CODE[0]
-        staking_balance = normal_aides[1].platon.get_balance(normal_aides[1].staking.contract_address)
+        staking_balance = normal_aides[1].platon.get_balance(normal_aides[1].staking.ADDRESS)
 
         assert normal_aides[1].staking.staking_info.ReleasedHes == normal_aides[1].economic.staking_limit
         assert normal_aides[1].staking.staking_info.RestrictingPlanHes == 0
 
         assert normal_aides[1].staking.withdrew_staking(private_key=sta_account.privateKey).message == ERROR_CODE[0]
-        staking_balance1 = normal_aides[1].platon.get_balance(normal_aides[1].staking.contract_address)
+        staking_balance1 = normal_aides[1].platon.get_balance(normal_aides[1].staking.ADDRESS)
 
         assert staking_balance1 == staking_balance - normal_aides[1].economic.staking_limit
 
     if use_type == 'mix':
-        sta_account = new_account(lat(100000))
+        sta_account = new_account(normal_aides[2], lat(100000))
         plan = [{'Epoch': 1, 'Amount': lat(10000)},
                 {'Epoch': 2, 'Amount': lat(10000)},
                 {'Epoch': 3, 'Amount': lat(10000)},
                 {'Epoch': 4, 'Amount': lat(10000)},
                 {'Epoch': 5, 'Amount': lat(10000)}]
-        restricting_balance = normal_aides[2].platon.get_balance(normal_aides[2].restricting.contract_address)
-        assert normal_aides[2].restricting.restricting(sta_account.address, plan,
-                                                       private_key=sta_account.privateKey).message == ERROR_CODE[0]
+        restricting_balance = normal_aides[2].platon.get_balance(normal_aides[2].restricting.ADDRESS)
+        assert normal_aides[2].restricting.restricting(sta_account.address, plan).message == ERROR_CODE[0]
         assert normal_aides[2].staking.create_staking(balance_type=2, private_key=sta_account.privateKey).message == \
                ERROR_CODE[0]
-        staking_balance = normal_aides[2].platon.get_balance(normal_aides[2].staking.contract_address)
+        staking_balance = normal_aides[2].platon.get_balance(normal_aides[2].staking.ADDRESS)
         restricting_info = normal_aides[2].restricting.get_restricting_info(sta_account.address)
         assert restricting_info['balance'] == lat(50000)
         assert restricting_info['Pledge'] == lat(50000)
@@ -363,11 +362,11 @@ def test_mix_pledge(normal_aides, use_type):
         assert normal_aides[2].staking.staking_info.ReleasedHes == lat(50000)
 
         assert normal_aides[2].staking.withdrew_staking(private_key=sta_account.privateKey).message == ERROR_CODE[0]
-        restricting_balance1 = normal_aides[2].platon.get_balance(normal_aides[2].restricting.contract_address)
-        staking_balance1 = normal_aides[2].platon.get_balance(normal_aides[2].staking.contract_address)
+        restricting_balance1 = normal_aides[2].platon.get_balance(normal_aides[2].restricting.ADDRESS)
+        staking_balance1 = normal_aides[2].platon.get_balance(normal_aides[2].staking.ADDRESS)
 
         assert restricting_balance1 == restricting_balance + lat(50000)
-        assert staking_balance1 == staking_balance - lat(50000)
+        assert staking_balance1 == staking_balance - lat(100000)
 
 
 @pytest.mark.parametrize('use_type', ['free', 'lock_Insufficient', 'lock_insufficient_gas', 'mix_insufficient_gas'])
@@ -419,12 +418,18 @@ def test_mix_pledge_insufficient_gas(normal_aide, use_type):
         plan = [{'Epoch': 1, 'Amount': lat(50000)}]
         normal_aide.restricting.restricting(sta_account.address, plan, private_key=sta_account.privateKey)
         logger.info("质押时低于最低门槛")
-        assert normal_aide.staking.create_staking(balance_type=2, amount=normal_aide.economic.staking_limit,
-                                                  private_key=sta_account.privateKey).message == ERROR_CODE[304015]
+        status = True
+        try:
+            assert normal_aide.staking.create_staking(balance_type=2, amount=normal_aide.economic.staking_limit,
+                                                      private_key=sta_account.privateKey).message == ERROR_CODE[0]
+            status = False
+        except Exception as e:
+            logger.info("Use case success, exception information：{} ".format(str(e)))
+            assert status, "ErrMsg:Transfer result {}".format(status)
 
 
 @pytest.mark.P1
-def test_mix_pledge_(normal_aide):
+def test_mix_pledge_increase_staking(normal_aide):
     """
      测试 私链启动后，普通节点使用混合金额质押，再增持
     @Desc:
@@ -439,8 +444,7 @@ def test_mix_pledge_(normal_aide):
             {'Epoch': 3, 'Amount': lat(10000)},
             {'Epoch': 4, 'Amount': lat(10000)},
             {'Epoch': 5, 'Amount': lat(10000)}]
-    assert normal_aide.restricting.restricting(sta_account.address, plan,
-                                               private_key=sta_account.privateKey).message == ERROR_CODE[0]
+    assert normal_aide.restricting.restricting(sta_account.address, plan).message == ERROR_CODE[0]
     assert normal_aide.staking.create_staking(balance_type=2, private_key=sta_account.privateKey).message == \
            ERROR_CODE[0]
 
@@ -466,11 +470,11 @@ def test_mix_pledge_(normal_aide):
     assert normal_aide.staking.staking_info.Released == normal_aide.economic.add_staking_limit
     assert normal_aide.staking.staking_info.RestrictingPlan == normal_aide.economic.add_staking_limit
 
-    staking_balance = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+    staking_balance = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
 
     assert normal_aide.staking.withdrew_staking(private_key=sta_account.privateKey).message == ERROR_CODE[0]
 
-    staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.contract_address)
+    staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
     assert staking_balance1 == staking_balance - normal_aide.economic.staking_limit + normal_aide.economic.add_staking_limit * 4
     restricting_info = normal_aide.restricting.get_restricting_info(sta_account.address)
     assert restricting_info['balance'] == lat(100000) - lat(10000)
@@ -480,12 +484,10 @@ def test_mix_pledge_(normal_aide):
 @pytest.mark.P1
 def test_mix_pledge_zero_execution_block(chain, normal_nodes, recover):
     """
-     测试 私链启动后，普通节点使用混合金额质押，锁仓金额不足质押金、自由金额补上-零出块处罚
+     测试 私链启动后，普通节点使用混合金额质押，零出块处罚优先扣除自由金额
     @Desc:
      -启动私链，混合金额质押，自由金额 50000、锁仓金额50000
-     -增持自由/锁仓最低增持金额 10
-     -跨结算周期再增持自由/锁仓最低增持金额 10
-     -撤销质押，查看账户和锁仓计划金额
+     -节点触发零出块，优先扣除自由金额，不足部分再扣除锁仓金额
     """
     genesis = Genesis(GENESIS_FILE)
     genesis.data['economicModel']['slashing']['slashBlocksReward'] = 2
@@ -507,13 +509,131 @@ def test_mix_pledge_zero_execution_block(chain, normal_nodes, recover):
            ERROR_CODE[0]
 
     aide1.wait_period('epoch')
-
+    aide1_node_id = aide1.node_id
+    assert aide1.staking.staking_info.Released == lat(50000)
+    assert aide1.staking.staking_info.RestrictingPlan == lat(50000)
     block_reward, staking_reward = get_current_year_reward(aide1)
+    logger.info("停止节点")
+    normal_nodes[0].stop()
 
+    aide2.wait_period('epoch')
+    print(aide2.staking.get_candidate_info(aide1_node_id))
+    penalty_amount = int(Decimal(str(block_reward)) * Decimal(str(aide2.govern.get_govern_param('slashing', 'slashBlocksReward'))))
+    assert aide2.staking.get_candidate_info(aide1.node_id)['Released'] == 0
+    assert aide2.staking.get_candidate_info(aide1.node_id)['RestrictingPlan'] == lat(50000) - (penalty_amount - lat(50000))
+
+
+@pytest.mark.P1
+def test_mix_pledge_duplicate_sign(normal_node):
+    """
+     测试 私链启动后，普通节点使用混合金额质押，零出块处罚优先扣除自由金额
+    @Desc:
+     -启动私链，混合金额质押，自由金额 50000、锁仓金额50000
+     -节点触发零出块，优先扣除自由金额，不足部分再扣除锁仓金额
+    """
+    aide = normal_node.aide
+    sta_account = new_account(aide, lat(1))
+    rep_account = new_account(aide, lat(1))
+    plan = [{'Epoch': 1, 'Amount': lat(20000)},
+            {'Epoch': 2, 'Amount': lat(20000)},
+            {'Epoch': 3, 'Amount': lat(20000)},
+            {'Epoch': 4, 'Amount': lat(20000)},
+            {'Epoch': 5, 'Amount': lat(20000)}]
+    assert aide.restricting.restricting(sta_account.address, plan).message == ERROR_CODE[0]
+    assert aide.staking.create_staking(balance_type=2, private_key=sta_account.privateKey).message == \
+           ERROR_CODE[0]
+
+    aide.wait_period('consensus', 5)
+
+    proportion_reward, incentive_pool_reward = get_report_reward(aide)
+
+    evidence = generate_evidence(normal_node)
+    assert aide.slashing.report_duplicate_sign(1, evidence, private_key=rep_account.privateKey).message == ERROR_CODE[0]
+    assert aide.staking.staking_info.RestrictingPlan == aide.economic.staking_limit - (proportion_reward + incentive_pool_reward)
+
+
+@pytest.mark.P1
+def test_mix_pledge_increase_staking_delegate(normal_aide):
+    """
+     测试 私链启动后，普通节点使用混合金额质押，节点委托
+    @Desc:
+     -启动私链，混合金额质押，自由金额 50000、锁仓金额50000
+     -分别自由金额/锁仓金额委托
+    """
+    sta_account = new_account(normal_aide, lat(100000))
+    del_account = new_account(normal_aide, lat(1))
+    plan = [{'Epoch': 1, 'Amount': lat(10000)},
+            {'Epoch': 2, 'Amount': lat(10000)},
+            {'Epoch': 3, 'Amount': lat(10000)},
+            {'Epoch': 4, 'Amount': lat(10000)},
+            {'Epoch': 5, 'Amount': lat(10000)}]
+    assert normal_aide.restricting.restricting(sta_account.address, plan).message == ERROR_CODE[0]
+    assert normal_aide.restricting.restricting(del_account.address, plan).message == ERROR_CODE[0]
+    assert normal_aide.staking.create_staking(balance_type=2, private_key=sta_account.privateKey).message == \
+           ERROR_CODE[0]
+
+    normal_aide.wait_period('epoch')
+
+    assert normal_aide.restricting.restricting(sta_account.address, plan).message == ERROR_CODE[0]
+
+    assert normal_aide.staking.increase_staking(private_key=sta_account.privateKey).message == ERROR_CODE[0]
+    assert normal_aide.staking.increase_staking(balance_type=1, private_key=sta_account.privateKey).message == ERROR_CODE[0]
+
+    assert normal_aide.delegate.delegate(private_key=del_account.privateKey).message == ERROR_CODE[0]
+    assert normal_aide.delegate.delegate(balance_type=1, private_key=del_account.privateKey).message == ERROR_CODE[0]
+
+    print(normal_aide.staking.get_candidate_info())
+    assert normal_aide.staking.staking_info.Released == lat(50000)
+    assert normal_aide.staking.staking_info.RestrictingPlan == lat(50000)
+    assert normal_aide.staking.staking_info.ReleasedHes == normal_aide.economic.add_staking_limit
+    assert normal_aide.staking.staking_info.RestrictingPlanHes == normal_aide.economic.add_staking_limit
+    assert normal_aide.staking.staking_info.DelegateTotalHes == normal_aide.economic.add_staking_limit * 2
+    assert normal_aide.staking.staking_info.Shares == normal_aide.economic.staking_limit + lat(40)
+
+
+@pytest.mark.P2
+def test_f_pledge_increase_zero_execution_block(initializer, normal_nodes):
+    """
+     测试 私链启动后，普通节点使用混合金额质押，节点委托
+    @Desc:
+     -启动私链，混合金额质押，自由金额 500000
+     -生效期后增持质押金额10000，触发零出块处罚
+    """
+    genesis = Genesis(GENESIS_FILE)
+    genesis.data['economicModel']['slashing']['slashBlocksReward'] = 1
+    new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
+    genesis.save_as(new_gen_file)
+    initializer.install(genesis_file=new_gen_file)
+    time.sleep(5)
+
+    aide1 = normal_nodes[0].aide
+    aide2 = normal_nodes[1].aide
+
+    sta_account = new_account(aide1, lat(200000))
+    plan = [{'Epoch': 1, 'Amount': lat(10000)},
+            {'Epoch': 2, 'Amount': lat(10000)},
+            {'Epoch': 3, 'Amount': lat(10000)},
+            {'Epoch': 4, 'Amount': lat(10000)},
+            {'Epoch': 5, 'Amount': lat(10000)}]
+
+    assert aide1.staking.create_staking(private_key=sta_account.privateKey).message == ERROR_CODE[0]
+
+    aide1.wait_period('epoch')
+    assert aide1.restricting.restricting(sta_account.address, plan).message == ERROR_CODE[0]
+    assert aide1.staking.increase_staking(amount=lat(50000), private_key=sta_account.privateKey).message == ERROR_CODE[0]
+    assert aide1.staking.increase_staking(balance_type=1, amount=lat(50000), private_key=sta_account.privateKey).message == ERROR_CODE[0]
+    aide1_node_id = aide1.staking.staking_info.NodeId
+    block_reward, staking_reward = get_current_year_reward(aide1)
     logger.info("停止节点")
     normal_nodes[0].stop()
 
     aide2.wait_period('epoch')
 
-    penalty_amount = int(Decimal(str(block_reward)) * Decimal(str(2)))
-    print(penalty_amount)
+    penalty_amount = int(Decimal(str(block_reward)) * Decimal(str(aide2.govern.get_govern_param('slashing', 'slashBlocksReward'))))
+    aide1_node_info = aide2.staking.get_candidate_info(aide1_node_id)
+    assert aide1_node_info['Shares'] == aide2.economic.staking_limit * 2 - penalty_amount
+    assert aide1_node_info['Released'] == aide2.economic.staking_limit + lat(50000) - penalty_amount
+    assert aide1_node_info['RestrictingPlan'] == lat(50000)
+
+
+

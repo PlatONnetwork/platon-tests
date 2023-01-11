@@ -91,11 +91,11 @@ def wait_consensus_assert_stop_node_status(run_aide, stop_aide, del_pk, wait_num
         candidate_info = PF.p_get_candidate_info(run_aide, query_aide=stop_aide)
         if candidate_info.Status == 0:
             logger.info(f"已等待{i + 1}共识轮: -> 节点状态正常进行委托")
-            assert run_aide.delegate.delegate(BD.delegate_limit, 3, stop_aide.node.node_id,
+            assert run_aide.delegate.delegate(BD.delegate_limit, 3, stop_aide.node_id,
                                               private_key=del_pk.del_pk)['code'] == 0
         elif candidate_info.Status == 3 or 7:
             logger.info(f"已等待{i + 1}共识轮: -> 节点状态异常(节点零出块需要锁定但无需解除质押) 进行委托")
-            res = run_aide.delegate.delegate(BD.delegate_limit, 3, stop_aide.node.node_id,
+            res = run_aide.delegate.delegate(BD.delegate_limit, 3, stop_aide.node_id,
                                              private_key=del_pk.del_pk)
             assert res['message'] == ERROR_CODE[301103]
             punishment_consensus_num = i + 1
@@ -107,7 +107,8 @@ def wait_consensus_assert_stop_node_status(run_aide, stop_aide, del_pk, wait_num
 
 def test_ghost_bug_001(normal_aide):
     """赎回质押后再次进行质押"""
-    sta_addr, sta_pk = new_account(normal_aide, BD.staking_limit * 5)
+    sta_account = new_account(normal_aide, BD.staking_limit * 5)
+    sta_addr, sta_pk = sta_account.address, sta_account.privateKey
     assert normal_aide.staking.create_staking(amount=BD.staking_limit * 2, benefit_address=sta_addr,
                                               private_key=sta_pk)['code'] == 0
     wait_settlement(normal_aide)
@@ -138,14 +139,14 @@ def test_ghost_bug_001(normal_aide):
 
 @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
 @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
-def test_withdrew_staking(create_lock_free_amt):
+def test_withdrew_staking(create_lock_free_amt, normal_nodes):
     """测试主动撤销质押 并 零出块"""
     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, _ = create_lock_free_amt
     assert normal_aide0.staking.withdrew_staking(node_id=normal_aide0_nt.node_id,
                                                  private_key=normal_aide0_nt.sta_pk)['code'] == 0
     candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
     assert candidate_info.Status == 33
-    normal_aide0.node.stop()
+    normal_nodes[0].stop()
 
     punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide1, normal_aide0, normal_aide0_nt)
     logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
@@ -153,7 +154,7 @@ def test_withdrew_staking(create_lock_free_amt):
         wait_settlement(normal_aide1)
     else:
         wait_settlement(normal_aide1, 1)
-    normal_aide0.node.start()
+    normal_nodes[0].start()
     candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
     assert candidate_info.Status == 35
 
@@ -185,32 +186,32 @@ class TestDelegateLockOneAccToManyNode:
         del_amt0 = BD.delegate_limit - 1
         assert normal_aide0.delegate.delegate(del_amt0, 3,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301105]
-        assert normal_aide0.delegate.delegate(del_amt0, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt0, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301105]
 
         logger.info("case-委托 A、B 节点 / limit")
         assert normal_aide0.delegate.delegate(private_key=normal_aide0_nt.del_pk, balance_type=3)['code'] == 0
         assert normal_aide0.delegate.delegate(private_key=normal_aide0_nt.del_pk, balance_type=3,
-                                              node_id=normal_aide1.node.node_id)['code'] == 0
+                                              node_id=normal_aide1.node_id)['code'] == 0
 
         logger.info("-委托 A、B 节点 / limit * 5")
         del_amt1 = BD.delegate_limit * 5
         assert normal_aide0.delegate.delegate(del_amt1, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
 
         logger.info("-委托 A、B 节点 / limit * 110 -> fail")
         del_amt2 = BD.delegate_limit * 110
         res = normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
-        res = normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id, private_key=normal_aide0_nt.del_pk)
+        res = normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id, private_key=normal_aide0_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
 
         logger.info("-委托 A(剩余金额/2) -> pass / B(剩余金额/2)+von_limit -> fail")
         residue_amt = BD.delegate_amount - (del_amt1 * 2) - (BD.delegate_limit * 2)
         del_amt3 = int(Decimal(residue_amt) / Decimal(2))
         assert normal_aide0.delegate.delegate(del_amt3, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        res = normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node.node_id,
+        res = normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node_id,
                                              private_key=normal_aide0_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
 
@@ -222,7 +223,7 @@ class TestDelegateLockOneAccToManyNode:
         del_info_0 = normal_aide0.delegate.get_delegate_info(normal_aide0_nt.del_addr,
                                                              staking_block_identifier=normal_aide0_nt.StakingBlockNum)
         assert del_info_0.LockReleasedHes == del_amt3 + del_amt1 + BD.delegate_limit
-        del_info_1 = normal_aide0.delegate.get_delegate_info(normal_aide0_nt.del_addr, normal_aide1.node.node_id,
+        del_info_1 = normal_aide0.delegate.get_delegate_info(normal_aide0_nt.del_addr, normal_aide1.node_id,
                                                              staking_block_identifier=normal_aide1_nt.StakingBlockNum)
         assert del_info_1.LockReleasedHes == del_amt1 + BD.delegate_limit
 
@@ -255,26 +256,26 @@ class TestDelegateLockOneAccToManyNode:
         logger.info("-委托 A、B 节点 / limit")
         assert normal_aide0.delegate.delegate(private_key=normal_aide0_nt.del_pk, balance_type=3)['code'] == 0
         assert normal_aide0.delegate.delegate(private_key=normal_aide0_nt.del_pk, balance_type=3,
-                                              node_id=normal_aide1.node.node_id)['code'] == 0
+                                              node_id=normal_aide1.node_id)['code'] == 0
 
         logger.info("-委托 A、B 节点 / limit * 5")
         del_amt1 = BD.delegate_limit * 5
         assert normal_aide0.delegate.delegate(del_amt1, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
 
         logger.info("-委托 A、B 节点 / limit * 110 -> fail")
         del_amt2 = BD.delegate_limit * 110
         res = normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
-        res = normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id, private_key=normal_aide0_nt.del_pk)
+        res = normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id, private_key=normal_aide0_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
 
         logger.info("-委托 A(剩余金额/2) -> pass / B(剩余金额/2)+von_limit -> fail")
         residue_amt = BD.delegate_amount - (del_amt1 * 2) - (BD.delegate_limit * 2)
         del_amt3 = int(Decimal(residue_amt) / Decimal(2))
         assert normal_aide0.delegate.delegate(del_amt3, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-查询锁定期 锁仓金额 RestrictingPlan == del_amt3(剩余金额/2)")
@@ -285,7 +286,7 @@ class TestDelegateLockOneAccToManyNode:
         del_info_0 = normal_aide0.delegate.get_delegate_info(normal_aide0_nt.del_addr,
                                                              staking_block_identifier=normal_aide0_nt.StakingBlockNum)
         assert del_info_0.LockRestrictingPlanHes == del_amt3 + del_amt1 + BD.delegate_limit
-        del_info_1 = normal_aide0.delegate.get_delegate_info(normal_aide0_nt.del_addr, normal_aide1.node.node_id,
+        del_info_1 = normal_aide0.delegate.get_delegate_info(normal_aide0_nt.del_addr, normal_aide1.node_id,
                                                              staking_block_identifier=normal_aide1_nt.StakingBlockNum)
         assert del_info_1.LockRestrictingPlanHes == del_amt1 + BD.delegate_limit
 
@@ -318,13 +319,13 @@ class TestDelegateLockOneAccToManyNode:
         logger.info("-委托 A、B 节点 / limit * 210 / 超过锁定期总金额 -> fail")
         assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
-        assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3, node_id=normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3, node_id=normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-委托 A、B 节点 / limit / 使用自由金额委托")
         assert normal_aide0.delegate.delegate(private_key=normal_aide0_nt.del_pk, balance_type=3)['code'] == 0
         assert normal_aide0.delegate.delegate(private_key=normal_aide0_nt.del_pk, balance_type=3,
-                                              node_id=normal_aide1.node.node_id)['code'] == 0
+                                              node_id=normal_aide1.node_id)['code'] == 0
         logger.info("查锁定期信息并验证 - lock_released - 980")
         lock_released = BD.delegate_amount - (BD.delegate_limit * 2)
         expect_data = {(3, 0, BD.delegate_amount), (4, lock_released, 0)}
@@ -344,12 +345,12 @@ class TestDelegateLockOneAccToManyNode:
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
         del_amt3 = BD.delegate_limit * 50
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         expect_data = {(3, 0, lock_restricting_plan - del_amt3), }
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
         logger.info("-验证各节点委托信息")
         del_info_0 = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
@@ -394,12 +395,12 @@ class TestDelegateLockOneAccToManyNode:
         logger.info("-委托 A、B 节点 / limit * 210 / 超过锁定期总金额 -> fail")
         assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
-        assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3, node_id=normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3, node_id=normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-委托 A、B 节点 / limit / 使用锁仓金额委托")
         assert normal_aide0.delegate.delegate(balance_type=3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(balance_type=3, node_id=normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(balance_type=3, node_id=normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
         logger.info("查锁定期信息并验证")
         lock_restricting_plan = BD.delegate_amount - (BD.delegate_limit * 2)
@@ -420,12 +421,12 @@ class TestDelegateLockOneAccToManyNode:
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
         del_amt3 = BD.delegate_limit * 50
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         expect_data = {(3, lock_released - del_amt3, 0), }
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
         logger.info("-验证各节点委托信息")
         del_info_0 = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
@@ -467,12 +468,12 @@ class TestDelegateLockOneAccToManyNode:
         logger.info("-委托 A、B 节点 / limit * 210 / 超过锁定期总金额 -> fail")
         assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
-        assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3, node_id=normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit * 210, 3, node_id=normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-委托 A、B 节点 / limit / 使用锁仓金额委托")
         assert normal_aide0.delegate.delegate(balance_type=3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(balance_type=3, node_id=normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(balance_type=3, node_id=normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk, )['code'] == 0
 
         logger.info("查锁定期信息并验证")
@@ -494,12 +495,12 @@ class TestDelegateLockOneAccToManyNode:
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
         del_amt3 = BD.delegate_limit * 50
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         expect_data = {(3, lock_released - del_amt3, 0), }
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
         logger.info("-验证各节点委托信息")
         del_info_0 = PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt)
@@ -642,36 +643,36 @@ class TestDelegateLockManyAccToManyNode:
         del_amt1 = BD.delegate_limit * 110
         res = normal_aide0.delegate.delegate(del_amt1, 3, private_key=normal_aide0_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
-        res = normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node.node_id, private_key=normal_aide1_nt.del_pk)
+        res = normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node_id, private_key=normal_aide1_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
 
         logger.info("-账户A1,B1 分别委托 A、B 节点 / limit")
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
         logger.info("-账户A1,B1 分别委托 A、B 节点 / limit * 5")
         del_amt2 = BD.delegate_limit * 5
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
         logger.info("-账户A1 (剩余金额/2)分别委托 A、B 节点")
         residue_amt = BD.delegate_amount - (del_amt2 * 2) - (BD.delegate_limit * 2)
         del_amt3 = int(Decimal(residue_amt) / Decimal(2))
         assert normal_aide0.delegate.delegate(del_amt3, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
 
         logger.info("-账户B1 分别委托 A(剩余金额/2)、B节点(剩余金额/2)+von_limit -> fail")
         assert normal_aide0.delegate.delegate(del_amt3, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-查询A1 无锁定金额")
@@ -723,36 +724,36 @@ class TestDelegateLockManyAccToManyNode:
         del_amt1 = BD.delegate_limit * 110
         res = normal_aide0.delegate.delegate(del_amt1, 3, private_key=normal_aide0_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
-        res = normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node.node_id, private_key=normal_aide1_nt.del_pk)
+        res = normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node_id, private_key=normal_aide1_nt.del_pk)
         assert ERROR_CODE[301207] == res['message']
 
         logger.info("-账户A1,B1 分别委托 A、B 节点 / limit")
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
         logger.info("-账户A1,B1 分别委托 A、B 节点 / limit * 5")
         del_amt2 = BD.delegate_limit * 5
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
         logger.info("-账户A1 (剩余金额/2)分别委托 A、B 节点")
         residue_amt = BD.delegate_amount - (del_amt2 * 2) - (BD.delegate_limit * 2)
         del_amt3 = int(Decimal(residue_amt) / Decimal(2))
         assert normal_aide0.delegate.delegate(del_amt3, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
 
         logger.info("-账户B1 分别委托 A(剩余金额/2)、B节点(剩余金额/2)+von_limit -> fail")
         assert normal_aide0.delegate.delegate(del_amt3, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt3 + BD.von_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-查询A1 无锁定金额")
@@ -822,15 +823,15 @@ class TestDelegateLockManyAccToManyNode:
         del_amt1 = BD.delegate_limit * 210
         assert normal_aide0.delegate.delegate(del_amt1, 3,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
-        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-账户A1,B1 分别委托 A、B 节点 / limit / 会使用自由金额委托")
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
         logger.info("查锁定期信息并验证 - lock_released = 980")
@@ -842,26 +843,26 @@ class TestDelegateLockManyAccToManyNode:
         logger.info("-A1账户剩余自由金额980、锁仓金额1000 - 委托 A节点500(自由金额980-500) B节点500(自由金额480+20锁仓金额)")
         del_amt2 = int(Decimal(BD.delegate_amount) / Decimal(2))
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         expect_data = {(3, 0, BD.delegate_amount - abs(del_amt2 * 2 - lock_released)), }
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
         logger.info("-B1账户剩余自由金额980、锁仓金额1000 - 委托 A节点500(自由金额980-500) B节点500(自由金额480+20锁仓金额)")
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
         logger.info("-A1账户剩余锁仓金额980 - 委托 A节点500(锁仓金额980-500) B节点480(锁仓金额480)")
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2 - BD.delegate_limit * 2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2 - BD.delegate_limit * 2, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         Assertion.del_lock_info_zero_money(normal_aide0, normal_aide0_nt)
 
         logger.info("-B1账户剩余锁仓金额980 - 委托 A节点500(锁仓金额980-500) B节点500(锁仓金额480 -> fail)")
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301207]
         expect_data = {(3, 0, del_amt2 - BD.delegate_limit * 2), }
         Assertion.del_locks_money(normal_aide0, normal_aide1_nt, expect_data)
@@ -928,15 +929,15 @@ class TestDelegateLockManyAccToManyNode:
         del_amt1 = BD.delegate_limit * 210
         assert normal_aide0.delegate.delegate(del_amt1, 3,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
-        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt1, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['message'] == ERROR_CODE[301207]
 
         logger.info("-账户A1,B1 分别委托 A、B 节点 / limit / 会使用锁仓金额委托")
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
         logger.info("查锁定期信息并验证 - lock_released = 980")
@@ -948,26 +949,26 @@ class TestDelegateLockManyAccToManyNode:
         logger.info("-A1账户剩余锁仓金额980、自由金额1000 - 委托 A节点500(锁仓金额980-500) B节点500(锁仓金额480+20自由金额)")
         del_amt2 = int(Decimal(BD.delegate_amount) / Decimal(2))
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         expect_data = {(3, BD.delegate_amount - abs(del_amt2 * 2 - lock_restricting_plan), 0), }
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
         logger.info("-B1账户剩余锁仓金额980、自由金额1000 - 委托 A节点500(锁仓金额980-500) B节点500(锁仓金额480+20自由金额)")
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
         logger.info("-A1账户剩余自由金额980 - 委托 A节点500(自由金额980-500) B节点480(自由金额480)")
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide0_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2 - BD.delegate_limit * 2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2 - BD.delegate_limit * 2, 3, normal_aide1.node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
         Assertion.del_lock_info_zero_money(normal_aide0, normal_aide0_nt)
 
         logger.info("-B1账户剩余自由金额980 - 委托 A节点500(自由金额980-500) B节点500(自由金额480 -> fail)")
         assert normal_aide0.delegate.delegate(del_amt2, 3, private_key=normal_aide1_nt.del_pk)['code'] == 0
-        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(del_amt2, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301207]
         expect_data = {(3, del_amt2 - BD.delegate_limit * 2, 0), }
         Assertion.del_locks_money(normal_aide0, normal_aide1_nt, expect_data)
@@ -1006,7 +1007,7 @@ class TestDelegateLockNodeException:
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 10, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
-    def test_node_gt_staking_limit(self, create_lock_mix_amt_free_unlock_long):
+    def test_node_gt_staking_limit(self, create_lock_mix_amt_free_unlock_long, normal_nodes):
         """
         测试节点状态异常(惩罚后大于质押金额) 使用锁定期金额 自由金额锁定周期更长进行委托
         @Setup:
@@ -1025,10 +1026,11 @@ class TestDelegateLockNodeException:
         assert len(PF.p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)['Locks']) == 2
 
         validator_list = get_pledge_list(normal_aide1.staking.get_validator_list)
-        assert normal_aide1.node.node_id in validator_list
+        assert normal_aide1.node_id in validator_list
+        normal_aide1_node_id = normal_aide1.node_id
 
-        logger.info(f"stop_node_id: {normal_aide1.node.node_id}")
-        normal_aide1.node.stop()
+        logger.info(f"stop_node_id: {normal_aide1.node_id}")
+        normal_nodes[1].stop()
 
         total_staking_reward, per_block_reward = normal_aide0.calculator.get_reward_info()
         logger.info(f"total_staking_reward: {total_staking_reward}")
@@ -1043,24 +1045,24 @@ class TestDelegateLockNodeException:
         logger.info(f"被惩罚 节点质押金额 > staking_limit, 节点状态恢复正常")
         candidate_info = PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1)
         assert candidate_info.Status == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1_node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
-        logger.info(f"start_node_id: {normal_aide1.node.node_id}")
+        logger.info(f"start_node_id: {normal_aide1_node_id}")
         normal_aide1.node.start()
-        logger.info(f"{normal_aide1.node}: 委托BD.delegate_amount, 会使用锁定期自由金额+锁仓金额")
-        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1.node.node_id,
+        logger.info(f"{normal_aide1}: 委托BD.delegate_amount, 会使用锁定期自由金额+锁仓金额")
+        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1_node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
         lock_info = PF.p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)
         logger.info(f"{normal_aide1.node}: 锁定期只剩下锁仓金额")
         assert len(lock_info["Locks"]) == 1
         logger.info(f"其他账户对{normal_aide1.node}进行委托")
-        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1_node_id,
                                               private_key=normal_aide0_nt.del_pk)['code'] == 0
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 10, "slashBlock": 10}], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
-    def test_node_lt_staking_limit(self, create_lock_mix_amt_free_unlock_long):
+    def test_node_lt_staking_limit(self, create_lock_mix_amt_free_unlock_long, normal_nodes):
         """测试节点状态异常(惩罚后小于质押金额) 使用锁定期金额委托"""
         logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
         normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
@@ -1068,10 +1070,11 @@ class TestDelegateLockNodeException:
         assert PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1).Status == 0
 
         validator_list = get_pledge_list(normal_aide1.staking.get_validator_list)
-        assert normal_aide1.node.node_id in validator_list
+        assert normal_aide1.node_id in validator_list
+        normal_aide1_node_id = normal_aide1.node_id
 
-        logger.info(f"stop_node_id: {normal_aide1.node.node_id}")
-        normal_aide1.node.stop()
+        logger.info(f"stop_node_id: {normal_aide1.node_id}")
+        normal_nodes[1].stop()
 
         total_staking_reward, per_block_reward = normal_aide0.calculator.get_reward_info()
         logger.info(f"total_staking_reward: {total_staking_reward}")
@@ -1083,12 +1086,12 @@ class TestDelegateLockNodeException:
             wait_settlement(normal_aide0)
         else:
             wait_settlement(normal_aide0, 1)
-        logger.info(f"start_node_id: {normal_aide1.node.node_id}")
+        logger.info(f"start_node_id: {normal_aide1_node_id}")
         normal_aide1.node.start()
         logger.info(f"被惩罚 节点质押金额 < staking_limit, 节点状态异常")
         candidate_info = PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1)
         assert candidate_info.Status == 7
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301103]
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
@@ -1106,10 +1109,10 @@ class TestDelegateLockNodeException:
         assert normal_aide1.delegate.delegate(amount=BD.delegate_amount, balance_type=0,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
 
-        assert normal_aide0.staking.withdrew_staking(node_id=normal_aide1.node.node_id,
+        assert normal_aide0.staking.withdrew_staking(node_id=normal_aide1.node_id,
                                                      private_key=normal_aide1_nt.sta_pk)['code'] == 0
         assert PF.p_get_candidate_info(normal_aide0, normal_aide1).Status == 33
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301103]
 
         wait_settlement(normal_aide0, 1)
@@ -1123,18 +1126,18 @@ class TestDelegateLockNodeException:
         assert PF.p_get_candidate_info(normal_aide0, normal_aide1).Status == 33
 
         wait_settlement(normal_aide0)
-        logger.info(f"-{normal_aide1.node}: 已无质押信息")
+        logger.info(f"-{normal_aide1}: 已无质押信息")
         assert PF.p_get_candidate_info(normal_aide0, normal_aide1) is None
 
         assert normal_aide1.staking.create_staking(amount=BD.staking_limit, balance_type=0,
-                                                   node_id=normal_aide1.node.node_id,
+                                                   node_id=normal_aide1.node_id,
                                                    benefit_address=normal_aide1_nt.sta_addr,
                                                    private_key=normal_aide1_nt.sta_pk)['code'] == 0
 
-        assert normal_aide1.delegate.delegate(BD.delegate_amount, 3, normal_aide1.node.node_id,
+        assert normal_aide1.delegate.delegate(BD.delegate_amount, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['code'] == 0
         logger.info(f"-锁定期无金额委托")
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node.node_id,
+        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
                                               private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301207]
 
 
@@ -1366,7 +1369,7 @@ class TestWithdrewDelegateBaseCase(TestWithdrewDelegate):
         logger.info(f"使用账户锁仓金额委托: {BD.delegate_amount}")
         lockup_amount = BD.delegate_amount  # platon/10 * 100
         plan = [{'Epoch': 10, 'Amount': lockup_amount}]
-        logger.info(f'{f"{normal_aide0.node}: 锁仓金额委托":*^50s}')
+        logger.info(f'{f"{normal_aide0}: 锁仓金额委托":*^50s}')
         assert normal_aide0.restricting.restricting(release_address=normal_aide0_nt.del_addr, plans=plan,
                                                     private_key=normal_aide0_nt.del_pk)['code'] == 0
         assert normal_aide0.delegate.delegate(amount=BD.delegate_amount, balance_type=1,
@@ -2938,7 +2941,7 @@ class TestRedeemDelegate:
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
-    def test_node_exception_redeem_delegate(self, create_lock_mix_amt_restr_unlock_long, normal_aides):
+    def test_node_exception_redeem_delegate(self, create_lock_mix_amt_restr_unlock_long, normal_aides, normal_nodes):
         """
         节点异常提取已解锁金额
         - 节点物理状态异常
@@ -2950,8 +2953,7 @@ class TestRedeemDelegate:
         expect_data = {(3, BD.von_k, 0), (4, 0, BD.von_k)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
         Assertion.del_locks_money(normal_aide1, normal_aide1_nt, expect_data)
-
-        normal_aide1.node.stop()
+        normal_nodes[1].stop()
 
         wait_settlement(normal_aide2)
 
@@ -2962,7 +2964,7 @@ class TestRedeemDelegate:
         assert abs(red_acc_amt - acc_amt_before - BD.von_k) < BD.von_min
 
         normal_aide1.node.start()
-        normal_aide0.node.stop()
+        normal_nodes[0].stop()
 
         acc_amt_before, red_acc_amt, restr_before, restr_later = \
             redeem_del_wait_unlock_diff_balance_restr(normal_aide2, normal_aide0_nt, wait_num=1, diff_restr=True)
@@ -3068,7 +3070,7 @@ class TestRedeemDelegate:
         logger.info(f"锁定期锁仓金额对 A、B、C、D 节点进行委托")
         del_amt = BD.delegate_limit * 25
         for i in range(0, 4):
-            assert normal_aide0.delegate.delegate(amount=del_amt, balance_type=3, node_id=normal_aides[i].node.node_id,
+            assert normal_aide0.delegate.delegate(amount=del_amt, balance_type=3, node_id=normal_aides[i].node_id,
                                                   private_key=normal_aide0_nt.del_pk)['code'] == 0
 
         logger.info(f"锁定期自由金额已释放并领取")
@@ -3939,8 +3941,8 @@ class TestLoopDelegate:
             redeem_del_wait_unlock_diff_balance_restr(normal_aide0, normal_aide0_nt, wait_num=0)
         assert red_acc_amt - acc_amt_before < BD.von_min
         logger.info(f"最后账户余额: {red_acc_amt}")
-        logger.info(f"质押合约地址金额：{normal_aide0.platon.get_balance(normal_aide0.staking.contract_address)}")
-        logger.info(f"锁仓合约地址金额：{normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)}")
+        logger.info(f"质押合约地址金额：{normal_aide0.platon.get_balance(normal_aide0.staking.ADDRESS)}")
+        logger.info(f"锁仓合约地址金额：{normal_aide0.platon.get_balance(normal_aide0.restricting.ADDRESS)}")
         return red_acc_amt
 
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
@@ -4139,12 +4141,12 @@ def test_restr_draw_4(choose_undelegate_freeze_duration, normal_aides):
 
     for i in range(6):
         if i < 3:  # 第四个结算周期 锁仓中已经没钱了
-            restricting_contract_1 = normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)
+            restricting_contract_1 = normal_aide0.platon.get_balance(normal_aide0.restricting.ADDRESS)
             logger.info(f"{i} - restricting_contract_1: {restricting_contract_1}")
             del_res = normal_aide0.delegate.delegate(amount=del_amt, balance_type=1, private_key=del_pk)
             assert del_res['code'] == 0
 
-            restricting_contract_2 = normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)
+            restricting_contract_2 = normal_aide0.platon.get_balance(normal_aide0.restricting.ADDRESS)
             logger.info(f"{i} - restricting_contract_2: {restricting_contract_2}")
 
         delegate_restr_info = normal_aide0.restricting.get_restricting_info(del_addr)
@@ -4156,7 +4158,7 @@ def test_restr_draw_4(choose_undelegate_freeze_duration, normal_aides):
         if i < 3:
             assert normal_aide0.delegate.withdrew_delegate(del_amt, StakingBlockNum,
                                                            private_key=del_pk)['code'] == 0
-            restricting_contract_3 = normal_aide0.platon.get_balance(normal_aide0.restricting.contract_address)
+            restricting_contract_3 = normal_aide0.platon.get_balance(normal_aide0.restricting.ADDRESS)
             logger.info(f"{i} - restricting_contract_3: {restricting_contract_3}")
 
         withdrew_delegate_restr_info = normal_aide0.restricting.get_restricting_info(del_addr)

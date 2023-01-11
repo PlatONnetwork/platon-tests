@@ -37,7 +37,7 @@ def test_transactionsRoot(normal_aide):
 
 def test_transactionCount(normal_aide):
     address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
-    result = normal_aide.transfer.transfer(address, normal_aide.delegate._economic.delegate_limit)
+    result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     number = result.blockNumber
     print(number)
     result = normal_aide.graphql.execute('{block(number: 1) {transactionCount}}')
@@ -190,7 +190,7 @@ def test_estimateGas(normal_aide):
 def test_block(normal_aide):
     account = normal_aide.platon.account.create(hrp=normal_aide.hrp)
     address = account.address
-    transfer_result = normal_aide.transfer.transfer(address, normal_aide.delegate._economic.delegate_limit)
+    transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_number = str(transfer_result['blockNumber'])
 
     result = normal_aide.graphql.execute('{block(number: ' + transfer_number + ') {transactionCount ommerCount number hash nonce'
