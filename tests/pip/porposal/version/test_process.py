@@ -47,7 +47,6 @@ class TestSubmitStage:
         for node in init_nodes:
             node.upload_platon(next_version.path())
             node.restart()
-
         votes(proposal.ProposalID, init_aides, 1)
         init_aide.wait_block(proposal.EndVotingBlock)
         result = init_aide.govern.get_proposal_result(proposal.ProposalID)

@@ -36,7 +36,7 @@ def param_proposal(aide: Aide, module, name, value):
     """
     rec = aide.govern.param_proposal(module, name, value)
 
-    proposal = p
+    proposal = ''
     if rec.code == 0:
         proposal = aide.govern.get_newest_proposal(3)
         assert proposal, 'get proposal error'

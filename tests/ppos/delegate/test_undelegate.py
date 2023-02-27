@@ -5,7 +5,7 @@ import pytest
 from loguru import logger
 from platon._utils.error_code import ERROR_CODE
 
-from lib.utils import wait_settlement, new_account
+from lib.utils import wait_settlement, new_account, lat
 from loguru import logger
 
 
@@ -120,9 +120,9 @@ def test_ROE_005_018(normal_aide, recover):
     address, pk = sta_account.address, sta_account.privateKey
     normal_aide.staking.create_staking(benefit_address=address, private_key=pk)
     StakingBlockNum = normal_aide.staking.staking_info.StakingBlockNum
-    del_account = new_account(normal_aide, normal_aide.economic.delegate_limit * 3)
+    del_account = new_account(normal_aide, normal_aide.economic.staking_limit * 2)
     delegate_address, delegate_pk = del_account.address, del_account.privateKey
-    assert normal_aide.delegate.delegate(private_key=delegate_pk)['code'] == 0
+    assert normal_aide.delegate.delegate(amount=lat(190000), private_key=delegate_pk)['code'] == 0
 
     # Return a pledge
     assert normal_aide.staking.withdrew_staking(private_key=pk)['code'] == 0
@@ -132,7 +132,7 @@ def test_ROE_005_018(normal_aide, recover):
     amount = normal_aide.platon.get_balance(delegate_address)
     logger.info("The wallet balance:{}".format(amount))
     # 赎回委托信息 需要传入当时质押的StakingBlockNum, *委托金额会进入锁定期
-    result = normal_aide.delegate.withdrew_delegate(private_key=delegate_pk, staking_block_identifier=StakingBlockNum)
+    result = normal_aide.delegate.withdrew_delegate(amount=lat(190000), private_key=delegate_pk, staking_block_identifier=StakingBlockNum)
     logger.info(result)
 
     wait_settlement(normal_aide)
