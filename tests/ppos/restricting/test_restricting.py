@@ -129,4 +129,4 @@ def test_lockout_plan_single_plan_insufficient(normal_aide):
      -私链启动后，创建锁仓计划，Epoch 参数输入空字符串None
     """
     account = new_account(normal_aide)
-    print(account.address, account.privateKey)
+    print(normal_aide.economic.round_blocks)

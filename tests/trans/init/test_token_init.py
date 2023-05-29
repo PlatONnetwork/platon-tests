@@ -31,7 +31,7 @@ def test_chain_init_token(chain, normal_aide):
     genesis.save_as(new_gen_file)
     chain.install(genesis_file=new_gen_file)
 
-    foundation_account = normal_aide.platon.get_balance(normal_aide.economic.innerAcc.platonFundAccount)
+    foundation_account = normal_aide.platon.get_balance(FUND_ACCOUNT.address)
     assert foundation_account == 0
 
     foundation_louckup_account = normal_aide.platon.get_balance(normal_aide.restricting.ADDRESS)

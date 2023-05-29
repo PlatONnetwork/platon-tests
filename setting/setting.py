@@ -11,8 +11,8 @@ SCHEME = 'http'  # 包括：ws/wss/http/https
 NETWORK = 'private'
 
 # 版本信息（通过版本获取二进制文件）
-CURRENT_VERSION = '1.3.2'
-PREVIOUS_VERSION = '1.2.2'  # 上一个发布版本，用于验证从该历史版本升级到测试版本的过程
+CURRENT_VERSION = '1.4.0'
+PREVIOUS_VERSION = '1.3.3'  # 上一个发布版本，用于验证从该历史版本升级到测试版本的过程
 
 # platon二进制文件存放目录
 BIN_DIR = os.path.join(BASE_DIR, 'env-files/bin')

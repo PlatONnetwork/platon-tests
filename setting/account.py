@@ -12,6 +12,5 @@ FUND_ACCOUNT = Account.from_key('5c76634db529cb19871f56f12564d52cfe66529cd2ca658
 INCENTIVE_POOL_ACCOUNT = 'lat1zqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqrdyjj2v'
 
 
-
 if __name__ == '__main__':
     print(CDF_ACCOUNT.address)
