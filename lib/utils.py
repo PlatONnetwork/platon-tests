@@ -5,11 +5,11 @@ from typing import Union
 
 import rlp
 from loguru import logger
-from platon_account.signers.local import LocalAccount
+from eth_account.signers.local import LocalAccount
 from platon_aide import Aide
 from platon_aide.staking import StakingInfo
 from platon_aide.utils.utils import mock_duplicate_sign
-from platon_utils import to_von
+from eth_utils import to_wei
 
 NO_PROPOSAL = 'no proposal'
 CONDITIONS = set(NO_PROPOSAL)  # 方便用例fixture使用
@@ -32,7 +32,7 @@ def new_account(aide: Aide, balance=0, restricting=None) -> LocalAccount:
     """ 创建账户，并给账户转入金额
     注意：restricting代表锁仓计划，而非锁仓金额
     """
-    account = aide.platon.account.create(hrp=aide.hrp)
+    account = aide.platon.account.create()
     if balance:
         aide.transfer.transfer(account.address, balance)
     if restricting:
@@ -42,7 +42,7 @@ def new_account(aide: Aide, balance=0, restricting=None) -> LocalAccount:
 
 
 def lat(number: Union[int, float, str, decimal.Decimal]):
-    return to_von(number, unit='lat')
+    return to_wei(number, unit='ether')
 
 
 def is_staking_member(node: StakingInfo, nodes: [StakingInfo]):
@@ -198,12 +198,12 @@ def get_current_year_reward(aide):
     """
     # if new_block_rate is None:
     #     new_block_rate = self.genesis.economicModel.reward.newBlockRate
-    # # current_block = node.eth.blockNumber
+    # # current_block = node.platon.blockNumber
     # annualcycle = (self.additional_cycle_time * 60) // self.settlement_size
     # annual_size = annualcycle * self.settlement_size
     # # starting_block_height = math.floor(current_block / annual_size) * annual_size
     # time.sleep(10)
-    # # amount = node.eth.getBalance(self.cfg.INCENTIVEPOOL_ADDRESS, starting_block_height)
+    # # amount = node.platon.getBalance(self.cfg.INCENTIVEPOOL_ADDRESS, starting_block_height)
     # if amount is None:
     #     amount = 262215742000000000000000000
     # block_proportion = str(new_block_rate / 100)
@@ -299,7 +299,9 @@ class PrintInfo:
         @param run_aide: 存活aide
         @param query_aide: 查询aide
         """
+        print('###########-------: ', run_aide.uri, query_aide.uri)
         candidate_info = run_aide.staking.get_candidate_info(node_id=query_aide.node_id)
+        print('**********p_get_candidate_info ************: ',query_aide.node_id, candidate_info)
         logger.info(f"{candidate_info}")
         return candidate_info
 

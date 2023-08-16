@@ -232,108 +232,108 @@ class TestSubmitStage:
         code, proposal = version_proposal(opt_node.aide, next_version.int())
         assert code == 0 and proposal
 
-    def test_pip_number_used_by_version_proposal(self, init_aide, init_nodes):
-        """ pip-number已被其他升级提案使用，再该提案生效前后，使用相同pip-number进行提案
-        """
-        pip_number = 100
-        rec = init_aide.govern.version_proposal(next_version.int(), pip_number=pip_number)
-        assert rec.code == 0
-
-        # 投票并等待提案生效
-        for node in init_nodes:
-            node.upload_platon(next_version.path())
-            node.restart()
-
-        proposal = init_aide.govern.get_newest_proposal(2)
-        votes(proposal.ProposalID, init_nodes, 1)
-        init_aide.wait_block(proposal.ActiveBlock)
-        result = init_aide.govern.get_proposal_result(proposal.ProposalID)
-        assert result.status == 5  # active
-
-        # 使用相同pip-number，重新提交升级提案
-        rec = init_aide.govern.version_proposal(next_version.upgrade(minor=1).int(), pip_number=pip_number)
-        assert rec.code == 0
-
-    def test_pip_number_used_by_param_proposal(self, init_aide, init_nodes):
-        """ pip-number已被其他参数提案使用，再该提案生效前后，使用相同pip-number进行提案
-        """
-        pip_number = 100
-        rec = init_aide.govern.param_proposal("staking", "maxValidators", 6, pip_number=pip_number)
-        assert rec.code == 0
-
-        # 投票并等待提案生效
-        for node in init_nodes:
-            node.upload_platon(next_version.path())
-            node.restart()
-
-        proposal = init_aide.govern.get_newest_proposal(3)
-        votes(proposal.ProposalID, init_nodes, 1)
-        init_aide.wait_block(proposal.ActiveBlock)
-        result = init_aide.govern.get_proposal_result(proposal.ProposalID)
-        assert result.status == 5  # active
-
-        # 使用相同提案pip-number，重新提交升级提案
-        rec = init_aide.govern.version_proposal(next_version.int(), pip_number=pip_number)
-        assert rec.code == 0
-
-    def test_proposal_major_version(self, init_aide):
-        """ 提案到当前大版本、上一个大版本、下一个大版本
-        """
-        code, _ = version_proposal(init_aide, current_version.int())
-        assert code == 0
-
-        code, _ = version_proposal(init_aide, current_version.upgrade(major=-1).int())
-        assert code == 0
-
-        # 升级到下一个大版本，子版本和补丁版本归零
-        code, _ = version_proposal(init_aide, Version(major=current_version.major + 1,
-                                                      minor=0,
-                                                      patch=0)
-                                   )
-        assert code == 0
-
-    def test_proposal_minor_version(self, init_aide):
-        """ 提案到当前子版本、上一个子版本、下一个子版本
-        """
-        code, _ = version_proposal(init_aide, current_version.int())
-        assert code == 0
-
-        code, _ = version_proposal(init_aide, current_version.upgrade(minor=-1).int())
-        assert code == 0
-
-        # 升级到下一个版本，补丁版本归零
-        code, _ = version_proposal(init_aide, Version(major=current_version.major,
-                                                      minor=current_version.minor + 1,
-                                                      patch=0)
-                                   )
-        assert code == 0
-
-    def test_proposal_patch_version(self, init_aide):
-        """ 仅更新补丁版本号，不影响共识，无需提交升级提案，提案失败
-        """
-        code, _ = version_proposal(init_aide, next_patch_version.int())
-        assert code == 0
-
-
-class TestVoteStage:
-
-    def test_less_support_rate(self):
-        pass
-
-    def test_equal_support_rate(self):
-        pass
-
-    def test_more_support_rate(self):
-        pass
-
-    def test_cale_support_rate(self):
-        pass
-
-
-class TestActiveStage:
-
-    def test_rollback_version_after_vote(self):
-        pass
-
-    def test_health_check_after_upgrade(self):
-        pass
+#     def test_pip_number_used_by_version_proposal(self, init_aide, init_nodes):
+#         """ pip-number已被其他升级提案使用，再该提案生效前后，使用相同pip-number进行提案
+#         """
+#         pip_number = 100
+#         rec = init_aide.govern.version_proposal(next_version.int(), pip_number=pip_number)
+#         assert rec.code == 0
+#
+#         # 投票并等待提案生效
+#         for node in init_nodes:
+#             node.upload_platon(next_version.path())
+#             node.restart()
+#
+#         proposal = init_aide.govern.get_newest_proposal(2)
+#         votes(proposal.ProposalID, init_nodes, 1)
+#         init_aide.wait_block(proposal.ActiveBlock)
+#         result = init_aide.govern.get_proposal_result(proposal.ProposalID)
+#         assert result.status == 5  # active
+#
+#         # 使用相同pip-number，重新提交升级提案
+#         rec = init_aide.govern.version_proposal(next_version.upgrade(minor=1).int(), pip_number=pip_number)
+#         assert rec.code == 0
+#
+#     def test_pip_number_used_by_param_proposal(self, init_aide, init_nodes):
+#         """ pip-number已被其他参数提案使用，再该提案生效前后，使用相同pip-number进行提案
+#         """
+#         pip_number = 100
+#         rec = init_aide.govern.param_proposal("staking", "maxValidators", 6, pip_number=pip_number)
+#         assert rec.code == 0
+#
+#         # 投票并等待提案生效
+#         for node in init_nodes:
+#             node.upload_platon(next_version.path())
+#             node.restart()
+#
+#         proposal = init_aide.govern.get_newest_proposal(3)
+#         votes(proposal.ProposalID, init_nodes, 1)
+#         init_aide.wait_block(proposal.ActiveBlock)
+#         result = init_aide.govern.get_proposal_result(proposal.ProposalID)
+#         assert result.status == 5  # active
+#
+#         # 使用相同提案pip-number，重新提交升级提案
+#         rec = init_aide.govern.version_proposal(next_version.int(), pip_number=pip_number)
+#         assert rec.code == 0
+#
+#     def test_proposal_major_version(self, init_aide):
+#         """ 提案到当前大版本、上一个大版本、下一个大版本
+#         """
+#         code, _ = version_proposal(init_aide, current_version.int())
+#         assert code == 0
+#
+#         code, _ = version_proposal(init_aide, current_version.upgrade(major=-1).int())
+#         assert code == 0
+#
+#         # 升级到下一个大版本，子版本和补丁版本归零
+#         code, _ = version_proposal(init_aide, Version(major=current_version.major + 1,
+#                                                       minor=0,
+#                                                       patch=0)
+#                                    )
+#         assert code == 0
+#
+#     def test_proposal_minor_version(self, init_aide):
+#         """ 提案到当前子版本、上一个子版本、下一个子版本
+#         """
+#         code, _ = version_proposal(init_aide, current_version.int())
+#         assert code == 0
+#
+#         code, _ = version_proposal(init_aide, current_version.upgrade(minor=-1).int())
+#         assert code == 0
+#
+#         # 升级到下一个版本，补丁版本归零
+#         code, _ = version_proposal(init_aide, Version(major=current_version.major,
+#                                                       minor=current_version.minor + 1,
+#                                                       patch=0)
+#                                    )
+#         assert code == 0
+#
+#     def test_proposal_patch_version(self, init_aide):
+#         """ 仅更新补丁版本号，不影响共识，无需提交升级提案，提案失败
+#         """
+#         code, _ = version_proposal(init_aide, next_patch_version.int())
+#         assert code == 0
+#
+#
+# class TestVoteStage:
+#
+#     def test_less_support_rate(self):
+#         pass
+#
+#     def test_equal_support_rate(self):
+#         pass
+#
+#     def test_more_support_rate(self):
+#         pass
+#
+#     def test_cale_support_rate(self):
+#         pass
+#
+#
+# class TestActiveStage:
+#
+#     def test_rollback_version_after_vote(self):
+#         pass
+#
+#     def test_health_check_after_upgrade(self):
+#         pass

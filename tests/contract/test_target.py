@@ -1,7 +1,7 @@
 import allure
 import pytest
-from platon_account import Account
-from platon_utils import to_bech32_address
+from eth_account import Account
+from eth_utils import to_checksum_address
 
 from setting.setting import *
 from tests.ppos.conftest import random_text, create_token_contract
@@ -17,7 +17,7 @@ def test_createTokenContract_001(contract_aide, name_bytes_lenght, symbol_bytes_
     receipt = contract_aide.contract.createTokenContract(contract_name, contract_symbol, 18, 100000000, txn={'gas': 2050000}, private_key=contract_ower_prikey)
     assert receipt.status == 1 and receipt['from'] == contract_ower
     tokenContractAddress = contract_aide.contract.getTokenContract(contract_symbol)
-    beachtokenContract = to_bech32_address(tokenContractAddress, 'lat')
+    beachtokenContract = to_checksum_address(tokenContractAddress)
     assert receipt['logs'][0]['address'] == beachtokenContract
 
 
@@ -33,7 +33,7 @@ def test_createTokenContract_002(contract_aide, name_bytes_lenght, symbol_bytes_
     assert receipt.status == 0 and receipt['from'] == contract_ower
     tokenContractAddress = contract_aide.contract.getTokenContract(contract_symbol)
     assert tokenContractAddress == '0x0000000000000000000000000000000000000000'
-    beachtokenContract = to_bech32_address(tokenContractAddress, 'lat')
+    beachtokenContract = to_checksum_address(tokenContractAddress)
     assert receipt['logs'] == []
 
 
@@ -102,11 +102,11 @@ def test_createTokenContract_006(contract_aide, decimals):
 def test_createTokenContract_007(contract_aide, user_prikey):
     # 设置预置的见证人为合约见证人
     contract_aide.contract.setWitness(contract_witness)
-    witness_address = to_bech32_address(contract_aide.contract.witness()[0], 'lat')
+    witness_address = to_checksum_address(contract_aide.contract.witness()[0])
     assert witness_address == contract_witness
     # 设置预置的监控人为合约监控人
     contract_aide.contract.setMonitor(contract_monitor)
-    monitor_address = to_bech32_address(contract_aide.contract.monitor(), 'lat')
+    monitor_address = to_checksum_address(contract_aide.contract.monitor())
     assert monitor_address == contract_monitor
 
     account = Account.from_key(user_prikey)
@@ -172,11 +172,11 @@ def test_createTokenContract_009(contract_aide, user_prikey):
 def test_getTokenContract_001(contract_aide, user_prikey):
     # 设置预置的见证人为合约见证人
     contract_aide.contract.setWitness(contract_witness)
-    witness_address = to_bech32_address(contract_aide.contract.witness()[0], 'lat')
+    witness_address = to_checksum_address(contract_aide.contract.witness()[0])
     assert witness_address == contract_witness
     # 设置预置的监控人为合约监控人
     contract_aide.contract.setMonitor(contract_monitor)
-    monitor_address = to_bech32_address(contract_aide.contract.monitor(), 'lat')
+    monitor_address = to_checksum_address(contract_aide.contract.monitor())
     assert monitor_address == contract_monitor
 
     contract_name = random_text(3)
@@ -185,7 +185,7 @@ def test_getTokenContract_001(contract_aide, user_prikey):
     logs_address = receipt.logs[0].address
     account = Account.from_key(user_prikey)
     contract_aide.set_default_account(account)
-    token_contract = to_bech32_address(contract_aide.contract.getTokenContract(contract_symbol), 'lat')
+    token_contract = to_checksum_address(contract_aide.contract.getTokenContract(contract_symbol))
     assert logs_address == token_contract
 
 
@@ -411,7 +411,7 @@ def test_mintToken_001(contract_aide):
     assert receipt.status == 1 and receipt['from'] == account.address == contract_witness
     tokenContractAddress = contract_aide.contract.getTokenContract(contract_symbol)
     token_info = contract_aide.contract.getTokenInfo(contract_symbol)
-    assert to_bech32_address(token_info[0], 'lat') == receipt.logs[0].address
+    assert to_checksum_address(token_info[0]) == receipt.logs[0].address
 
 
 @allure.title("mintToken parameter txHash verification")
@@ -426,7 +426,7 @@ def test_mintToken_002_001(contract_aide, tx_hash):
     assert receipt.status == 1 and receipt['from'] == account.address == contract_witness
     tokenContractAddress = contract_aide.contract.getTokenContract(contract_symbol)
     token_info = contract_aide.contract.getTokenInfo(contract_symbol)
-    assert to_bech32_address(token_info[0], 'lat') == receipt.logs[0].address
+    assert to_checksum_address(token_info[0]) == receipt.logs[0].address
 
 
 @allure.title("mintToken parameter txHash verification")
@@ -567,8 +567,8 @@ def test_mintToken_009(contract_aide):
     token_info = contract_aide.contract.getTokenInfo(contract_symbol)
     event_receipt = contract_aide.contract.AssetMinted(receipt)[0]
     assert event_receipt.args.txHash.hex() == tx_hash[2:]
-    assert to_bech32_address(event_receipt.args.localAddress, 'lat') == account.address
-    assert to_bech32_address(event_receipt.args.remoteAddress, 'lat') == account.address
+    assert to_checksum_address(event_receipt.args.localAddress) == account.address
+    assert to_checksum_address(event_receipt.args.remoteAddress) == account.address
     assert event_receipt.args.symbol == contract_symbol
     assert event_receipt.args.tokenAddress == token_ADDRESS == token_info[0]
     assert event_receipt.args.amount == cap
@@ -606,7 +606,7 @@ def test_redeemToken_002(contract_aide, symbol_bytes_lenght):
     contract_aide.set_default_account(account)
     tx_hash = '038a54faa49a1f71c2611f2d45e56092fa3bc63669b10741292c04b4c49dd7c8'
     receipt = contract_aide.contract.mintToken(tx_hash, account.address, account.address, contract_symbol, cap)
-    address = to_bech32_address(contract_aide.contract.getTokenContract(contract_symbol), 'lat')
+    address = to_checksum_address(contract_aide.contract.getTokenContract(contract_symbol))
     print(address)
     status = True
     try:
@@ -629,7 +629,7 @@ def test_redeemToken_003(contract_aide, remote_address):
     contract_aide.set_default_account(account)
     tx_hash = '038a54faa49a1f71c2611f2d45e56092fa3bc63669b10741292c04b4c49dd7c8'
     receipt = contract_aide.contract.mintToken(tx_hash, account.address, account.address, contract_symbol, cap)
-    address = to_bech32_address(contract_aide.contract.getTokenContract(contract_symbol), 'lat')
+    address = to_checksum_address(contract_aide.contract.getTokenContract(contract_symbol))
     print(address)
     status = True
     try:
@@ -770,8 +770,8 @@ def test_redeemToken_009(contract_aide,user_prikey):
     assert receipt.status == 1 and receipt['from'] == account_user.address
 
     event_receipt = contract_aide.contract.AssetRedeemed(receipt)[0]
-    assert to_bech32_address(event_receipt.args.localAddress, 'lat') ==account_user.address
-    assert to_bech32_address(event_receipt.args.remoteAddress, 'lat') == account.address
+    assert to_checksum_address(event_receipt.args.localAddress) ==account_user.address
+    assert to_checksum_address(event_receipt.args.remoteAddress) == account.address
     assert event_receipt.args.symbol == contract_symbol
     assert event_receipt.args.tokenAddress == contract_aide.contract.getTokenContract(contract_symbol)
     assert event_receipt.args.amount == cap - token_fee * (10+1)
@@ -788,8 +788,8 @@ def test_getTokenInfo_001(contract_aide, user_prikey):
     account = Account.from_key(user_prikey)
     contract_aide.set_default_account(account)
     token_info = contract_aide.contract.getTokenInfo(contract_symbol)
-    address = to_bech32_address(contract_aide.contract.getTokenContract(contract_symbol), 'lat')
-    token_info_address = to_bech32_address(token_info[0], 'lat')
+    address = to_checksum_address(contract_aide.contract.getTokenContract(contract_symbol))
+    token_info_address = to_checksum_address(token_info[0])
     assert address == token_info_address
     assert token_info[1] == contract_name and  token_info[2] == 18
 
@@ -825,11 +825,12 @@ def test_getTokenInfo_003(contract_aide, symbol_bytes_lenght):
 @pytest.mark.P0
 def test_regTokenContract_001(contract_aide):
     # =erc20token地址,注册一次之后就不行了,如果失败就重新布合约换地址再跑
-    token_ADDRESS = 'lat1mac9q4d9hss3yvzuevt4lgjhf6zk7dtulc3lnc'
+    # token_ADDRESS = '0xdf705055a5bc2112305ccb175fa2574e856f357c'
+    token_ADDRESS = ''
     receipt = contract_aide.contract.regTokenContract(token_ADDRESS, txn={'gas': 2050000}, private_key=contract_ower_prikey)
     assert receipt.status == 1 and receipt['from'] == contract_ower and receipt.logs[0].address == ADDRESS
     event_receipt = contract_aide.contract.TokenCreated(receipt)[0]
-    assert to_bech32_address(event_receipt.args.tokenAddress, 'lat') == to_bech32_address(contract_aide.contract.getTokenContract('ETH'), 'lat') == token_ADDRESS
+    assert to_checksum_address(event_receipt.args.tokenAddress) == to_checksum_address(contract_aide.contract.getTokenContract('ETH')) == token_ADDRESS
     assert event_receipt.args.symbol == 'ETH'
     assert event_receipt.args.name == 'Platon ETH'
     assert event_receipt.args.decimals == 18
@@ -968,7 +969,7 @@ def test_rollBackToken_008(contract_aide):
     assert receipt.status == 1 and receipt['from'] == account.address == contract_witness
 
     event_receipt = contract_aide.contract.AssetRedeemRollback(receipt)[0]
-    assert to_bech32_address(event_receipt.args.receiveAddress, 'lat') == contract_witness
+    assert to_checksum_address(event_receipt.args.receiveAddress) == contract_witness
     assert event_receipt.args.txHash.hex() == tx_hash[2:]
     assert event_receipt.args.symbol == contract_symbol
     assert event_receipt.args.tokenAddress == contract_aide.contract.getTokenContract(contract_symbol)
@@ -1017,7 +1018,7 @@ def test_isOwner_001(contract_aide, user_prikey, expect):
 def test_owner_001(contract_aide, user_prikey):
     account = Account.from_key(user_prikey)
     contract_aide.set_default_account(account)
-    owner = to_bech32_address(contract_aide.contract.owner(), 'lat')
+    owner = to_checksum_address(contract_aide.contract.owner())
     assert owner == contract_ower
 
 
@@ -1041,7 +1042,7 @@ def test_isWitness_001(contract_aide, user_prikey, expect):
 def test_witness_001(contract_aide, user_prikey):
     account = Account.from_key(user_prikey)
     contract_aide.set_default_account(account)
-    witness = to_bech32_address(contract_aide.contract.witness()[0], 'lat')
+    witness = to_checksum_address(contract_aide.contract.witness()[0])
     assert witness == contract_witness
 
 
@@ -1065,7 +1066,7 @@ def test_isMonitor_001(contract_aide, user_prikey, expect):
 def test_monitor_001(contract_aide, user_prikey):
     account = Account.from_key(user_prikey)
     contract_aide.set_default_account(account)
-    witness = to_bech32_address(contract_aide.contract.monitor(), 'lat')
+    witness = to_checksum_address(contract_aide.contract.monitor())
     assert witness == contract_monitor
 
 
@@ -1106,7 +1107,7 @@ def test_Switch_001(contract_aide, user_prikey):
 def test_transfer_ownership_001(contract_aide):
     result = contract_aide.contract.transferOwnership(contract_user)
     assert result.status == 1 and result['from'] == contract_ower
-    owner = to_bech32_address(contract_aide.contract.owner(), 'lat')
+    owner = to_checksum_address(contract_aide.contract.owner())
     assert owner == contract_user
 
     account = Account.from_key(contract_user_prikey)
@@ -1114,7 +1115,7 @@ def test_transfer_ownership_001(contract_aide):
     result = contract_aide.contract.transferOwnership(contract_ower)
     print(result)
     assert result.status == 1 and result['from'] == contract_user
-    owner = to_bech32_address(contract_aide.contract.owner(), 'lat')
+    owner = to_checksum_address(contract_aide.contract.owner())
     assert owner == contract_ower
 
 
@@ -1138,12 +1139,12 @@ def test_transfer_ownership_002(contract_aide, user_prikey):
 def test_transfer_ownership_003(contract_aide):
     receipt = contract_aide.contract.transferOwnership(contract_user)
     assert receipt.status == 1 and receipt['from'] == contract_ower
-    owner = to_bech32_address(contract_aide.contract.owner(), 'lat')
+    owner = to_checksum_address(contract_aide.contract.owner())
     assert owner == contract_user
 
     event_receipt = contract_aide.contract.OwnershipTransferred(receipt)[0]
-    assert to_bech32_address(event_receipt.args.previousOwner, 'lat') == contract_ower
-    assert to_bech32_address(event_receipt.args.newOwner, 'lat') == contract_user
+    assert to_checksum_address(event_receipt.args.previousOwner) == contract_ower
+    assert to_checksum_address(event_receipt.args.newOwner) == contract_user
     assert event_receipt.event == 'OwnershipTransferred'
 
     # 环境重置
@@ -1151,7 +1152,7 @@ def test_transfer_ownership_003(contract_aide):
     contract_aide.set_default_account(account)
     result = contract_aide.contract.transferOwnership(contract_ower)
     assert result.status == 1 and result['from'] == contract_user
-    owner = to_bech32_address(contract_aide.contract.owner(), 'lat')
+    owner = to_checksum_address(contract_aide.contract.owner())
     assert owner == contract_ower
 
 
@@ -1191,8 +1192,8 @@ def test_transfer_setwitness_003(contract_aide):
     create_token_contract(contract_aide)
     receipt = contract_aide.contract.setWitness(contract_user)
     event_receipt = contract_aide.contract.WitnessChanged(receipt)[0]
-    assert to_bech32_address(event_receipt.args.oldWitness, 'lat') == contract_witness
-    assert to_bech32_address(event_receipt.args.newWitness, 'lat') == contract_user
+    assert to_checksum_address(event_receipt.args.oldWitness) == contract_witness
+    assert to_checksum_address(event_receipt.args.newWitness) == contract_user
     assert event_receipt.event == 'WitnessChanged'
 
 
@@ -1202,11 +1203,11 @@ def test_transfer_setMonitor_001(contract_aide):
     result = contract_aide.contract.setMonitor(contract_user)
     print(result)
 
-    monitor = to_bech32_address(contract_aide.contract.monitor(), 'lat')
+    monitor = to_checksum_address(contract_aide.contract.monitor())
     assert monitor == contract_user
 
     result = contract_aide.contract.setMonitor(contract_monitor)
-    monitor = to_bech32_address(contract_aide.contract.monitor(), 'lat')
+    monitor = to_checksum_address(contract_aide.contract.monitor())
     assert monitor == contract_monitor
 
 
@@ -1243,8 +1244,8 @@ def test_transfer_setMonitor_003(contract_aide, address):
 def test_transfer_setMonitor_001(contract_aide):
     receipt = contract_aide.contract.setMonitor(contract_user)
     event_receipt = contract_aide.contract.MonitorChanged(receipt)[0]
-    assert to_bech32_address(event_receipt.args.oldMonitor, 'lat') == contract_monitor
-    assert to_bech32_address(event_receipt.args.newMonitor, 'lat') == contract_user
+    assert to_checksum_address(event_receipt.args.oldMonitor) == contract_monitor
+    assert to_checksum_address(event_receipt.args.newMonitor) == contract_user
     assert event_receipt.event == 'MonitorChanged'
 
 

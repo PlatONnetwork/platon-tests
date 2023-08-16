@@ -1,4 +1,3 @@
-import time
 from os.path import join
 
 import pytest
@@ -40,6 +39,8 @@ def initializer(request) -> Chain:
 def recover(initializer):
     """ 在用例运行结束后恢复环境，仅用于用例更改了环境的情况
     """
-    # initializer.uninstall()
     yield
+    # 先清理supervisor，再进行安装
+    for host in initializer.hosts:
+        host.supervisor.clean()
     initializer.install()

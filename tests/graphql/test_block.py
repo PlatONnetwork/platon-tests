@@ -36,7 +36,7 @@ def test_transactionsRoot(normal_aide):
 
 
 def test_transactionCount(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     number = result.blockNumber
     print(number)
@@ -188,7 +188,7 @@ def test_estimateGas(normal_aide):
 
 
 def test_block(normal_aide):
-    account = normal_aide.platon.account.create(hrp=normal_aide.hrp)
+    account = normal_aide.platon.account.create()
     address = account.address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_number = str(transfer_result['blockNumber'])
@@ -222,7 +222,7 @@ def test_block(normal_aide):
 
     miner_address = result.get('block').get('miner').get('address')
     transfer_address = result.get('block').get('account').get('address')
-    address = normal_aide.web3.to_bech32_address('0x1000000000000000000000000000000000000003', normal_aide.hrp)
-    master_address = normal_aide.web3.to_bech32_address('0x15866368698d0f2c307e98f9723065b982e61793', normal_aide.hrp)
+    address = normal_aide.web3.to_checksum_address('0x1000000000000000000000000000000000000003')
+    master_address = normal_aide.web3.to_checksum_address('0x15866368698d0f2c307e98f9723065b982e61793')
     assert miner_address == address
     assert transfer_address == master_address

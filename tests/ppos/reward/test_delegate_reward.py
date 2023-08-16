@@ -15,7 +15,7 @@ def create_restricting_plan(aide):
     restrict_account = new_account(aide, aide.economic.staking_limit)
     restrict_address, restrict_prikey = restrict_account.address, restrict_account.privateKey
     plan = [
-        {'Epoch': 5, 'Amount': aide.web3.toVon(1000, 'lat')}
+        {'Epoch': 5, 'Amount': aide.web3.toWei(1000, 'ether')}
     ]
     result = aide.restricting.restricting(release_address=restrict_address,
                                           plans=plan, private_key=account.privateKey)
@@ -136,6 +136,4 @@ def test_normal_node_vary_period_receive_entrusted_income(normal_aide):
     normal_aide.set_result_type('txn')
     a = normal_aide.staking.create_staking(private_key=sta_account.privateKey)
     # a = normal_aide.delegate.delegate(amount=lat(20), private_key=del_account.privateKey)
-    print(a["data"].hex())
-    print(a)
     # normal_aide.debug.accountRange()

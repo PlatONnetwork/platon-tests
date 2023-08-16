@@ -4,7 +4,9 @@ from decimal import Decimal
 import pytest
 from loguru import logger
 from platon._utils.error_code import ERROR_CODE
-
+from platon_utils import (
+    to_normalized_address
+)
 
 from platon_env.genesis import Genesis
 
@@ -26,7 +28,7 @@ def test_check_init_node(init_nodes):
     validator_list = init_aide.staking.get_validator_list()
     logger.info(f"validator_list: {validator_list}")
 
-    assert 0 == len({i.StakingAddress for i in validator_list if i.StakingAddress != CDF_ACCOUNT.address})
+    assert 0 == len({i.StakingAddress for i in validator_list if to_normalized_address(i.StakingAddress) != to_normalized_address(CDF_ACCOUNT.address)})
     assert {i.node_id for i in init_nodes} == {i.NodeId for i in validator_list}
     # 003 staking_addr == CDF_ACCOUNT.address
 
@@ -38,9 +40,11 @@ def test_check_init_node_duplicate_pledge(init_aide):
     @Desc:
      -启动私链，初始验证人重复质押，验证返回code
     """
-    assert init_aide.staking.create_staking(0, benefit_address=CDF_ACCOUNT.address,
-                                            private_key=CDF_ACCOUNT.privateKey).message == ERROR_CODE[301101]
-
+    message = init_aide.staking.create_staking(0, benefit_address=CDF_ACCOUNT.address,
+                                            private_key=CDF_ACCOUNT.privateKey).message
+    # assert init_aide.staking.create_staking(0, benefit_address=CDF_ACCOUNT.address,
+    #                                         private_key=CDF_ACCOUNT.privateKey).message == ERROR_CODE[301101]
+    assert message == ERROR_CODE[301101]
 
 @pytest.mark.P1
 def test_delegate_init_node(init_aide):
@@ -50,8 +54,9 @@ def test_delegate_init_node(init_aide):
      -启动私链，创建委托账号，委托初始验证人查看返回code
     """
     del_account = new_account(init_aide, lat(100))
-    assert init_aide.delegate.delegate(0, private_key=del_account.privateKey).message == ERROR_CODE[301107]
-
+    message = init_aide.delegate.delegate(0, private_key=del_account.privateKey).message
+    # assert init_aide.delegate.delegate(0, private_key=del_account.privateKey).message == ERROR_CODE[301107]
+    assert message == ERROR_CODE[301107]
 
 @pytest.mark.P1
 def test_increase_init_node(init_aide):
@@ -80,7 +85,6 @@ def test_init_node_re_pledge(init_aide):
 
     init_aide.wait_period('epoch', 3)
 
-    print(init_aide.staking.get_candidate_info())
     assert init_aide.staking.get_candidate_info() is None
     logger.info("预期初始验证人已退出 --- 重新质押节点")
 
@@ -493,6 +497,8 @@ def test_mix_pledge_zero_execution_block(chain, normal_nodes, recover):
     genesis.data['economicModel']['slashing']['slashBlocksReward'] = 2
     new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
     genesis.save_as(new_gen_file)
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -517,7 +523,6 @@ def test_mix_pledge_zero_execution_block(chain, normal_nodes, recover):
     normal_nodes[0].stop()
 
     aide2.wait_period('epoch')
-    print(aide2.staking.get_candidate_info(aide1_node_id))
     penalty_amount = int(Decimal(str(block_reward)) * Decimal(str(aide2.govern.get_govern_param('slashing', 'slashBlocksReward'))))
     assert aide2.staking.get_candidate_info(aide1.node_id)['Released'] == 0
     assert aide2.staking.get_candidate_info(aide1.node_id)['RestrictingPlan'] == lat(50000) - (penalty_amount - lat(50000))
@@ -582,7 +587,6 @@ def test_mix_pledge_increase_staking_delegate(normal_aide):
     assert normal_aide.delegate.delegate(private_key=del_account.privateKey).message == ERROR_CODE[0]
     assert normal_aide.delegate.delegate(balance_type=1, private_key=del_account.privateKey).message == ERROR_CODE[0]
 
-    print(normal_aide.staking.get_candidate_info())
     assert normal_aide.staking.staking_info.Released == lat(50000)
     assert normal_aide.staking.staking_info.RestrictingPlan == lat(50000)
     assert normal_aide.staking.staking_info.ReleasedHes == normal_aide.economic.add_staking_limit
@@ -603,6 +607,8 @@ def test_f_pledge_increase_zero_execution_block(initializer, normal_nodes):
     genesis.data['economicModel']['slashing']['slashBlocksReward'] = 1
     new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
     genesis.save_as(new_gen_file)
+    for host in initializer.hosts:
+        host.supervisor.clean()
     initializer.install(genesis_file=new_gen_file)
     time.sleep(5)
 

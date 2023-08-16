@@ -3,7 +3,8 @@ import pytest
 from eth_account import Account
 from platon_aide.contract import Contract
 # from platon_utils import to_bech32_address
-from web3 import Web3, HTTPProvider
+from platon import Web3
+from web3 import HTTPProvider
 
 from setting import setting
 
@@ -77,14 +78,14 @@ def test_debug():
     # contract.set_default_account(account)
     #
     result = contract.lockAsset('0x6d795FD82391fEEeFBc3aeE3241496c07a575442', 'AUSDT', 100, txn={'gasPrice': 1000000000}
-    , private_key=token_prikey
-                                )
+    , private_key=token_prikey)
     print(result)
     # pass
 
 
 def test_shingdebug():
-    from platon import Web3, HTTPProvider
+    from platon import Web3
+    from web3 import HTTPProvider
 
     w3 = Web3(HTTPProvider('https://devnetopenapi.platon.network/rpc'))
 

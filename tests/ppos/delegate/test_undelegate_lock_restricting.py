@@ -3,7 +3,7 @@ import time
 
 from decimal import Decimal
 
-import platon_utils
+import eth_utils
 import pytest
 import web3
 from loguru import logger
@@ -29,6 +29,8 @@ class TestRestrictingAndLockUp:
             -等待委托解锁期领取委托锁仓金 查看锁仓计划
         """
         chain, new_gen_file = update_undelegate_freeze_duration
+        for host in chain.hosts:
+            host.supervisor.clean()
         chain.install(genesis_file=new_gen_file)
         time.sleep(5)
         lockup_amount = BaseData.delegate_limit * 50
@@ -106,6 +108,8 @@ class TestRestrictingAndLockUp:
             -等待委托解锁期领取委托锁仓金 查看锁仓计划
         """
         chain, new_gen_file = update_undelegate_freeze_duration
+        for host in chain.hosts:
+            host.supervisor.clean()
         chain.install(genesis_file=new_gen_file)
         time.sleep(5)
         lockup_amount = BaseData.delegate_limit * 50
@@ -171,7 +175,7 @@ class TestRestrictingAndLockUp:
         assert normal_aide.delegate.redeem_delegate(private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
         time.sleep(1)
         del_balance1 = normal_aide.platon.get_balance(normal_aide0_namedtuple.del_addr)
-        assert del_balance + lockup_amount - del_balance1 < platon_utils.to_von(0.01, 'lat')
+        assert del_balance + lockup_amount - del_balance1 < eth_utils.to_wei(0.01, 'ether')
 
         restr_info4 = normal_aide.restricting.get_restricting_info(normal_aide0_namedtuple.del_addr)
         assert restr_info4['balance'] == lockup_amount and restr_info4['debt'] == 0
@@ -196,6 +200,8 @@ class TestRestrictingAndLockUp:
             -等待委托解锁期领取委托锁仓金 查看锁仓计划
         """
         chain, new_gen_file = update_undelegate_freeze_duration_three
+        for host in chain.hosts:
+            host.supervisor.clean()
         chain.install(genesis_file=new_gen_file)
         time.sleep(5)
 
@@ -234,7 +240,6 @@ class TestRestrictingAndLockUp:
 
         wait_settlement(normal_aide, 1)
         restr_info3 = normal_aide.restricting.get_restricting_info(normal_aide0_namedtuple.del_addr)
-        print('restr_info3', restr_info3)
         assert restr_info3['balance'] == BaseData.delegate_amount and restr_info3['debt'] == lockup_amount
         assert restr_info3['plans'][0]['amount'] == lockup_amount
         assert restr_info3['plans'][0]['blockNumber'] == 640
@@ -255,7 +260,7 @@ class TestRestrictingAndLockUp:
         assert normal_aide.delegate.redeem_delegate(private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
         del_balance1 = normal_aide.platon.get_balance(normal_aide0_namedtuple.del_addr)
         print(del_balance1)
-        assert del_balance1 - del_balance < platon_utils.to_von(0.01, 'lat')
+        assert del_balance1 - del_balance < eth_utils.to_wei(0.01, 'ether')
 
         restr_info4 = normal_aide.restricting.get_restricting_info(normal_aide0_namedtuple.del_addr)
         print(restr_info4)
@@ -276,7 +281,7 @@ class TestRestrictingAndLockUp:
         assert normal_aide.delegate.redeem_delegate(private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
         del_balance2 = normal_aide.platon.get_balance(normal_aide0_namedtuple.del_addr)
         print(del_balance1)
-        assert del_balance1 + lockup_amount - del_balance2 < platon_utils.to_von(0.01, 'lat')
+        assert del_balance1 + lockup_amount - del_balance2 < eth_utils.to_wei(0.01, 'ether')
 
         restr_info4 = normal_aide.restricting.get_restricting_info(normal_aide0_namedtuple.del_addr)
         print(restr_info4)
@@ -312,6 +317,8 @@ def test_restrictingPlan_debt_redeem_delegate(update_undelegate_freeze_duration_
         -等待委托解锁期领取委托锁仓金 查看锁仓计划
     """
     chain, new_gen_file = update_undelegate_freeze_duration_three
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -370,7 +377,7 @@ def test_restrictingPlan_debt_redeem_delegate(update_undelegate_freeze_duration_
     assert normal_aide.delegate.redeem_delegate(private_key=normal_aide0_namedtuple.del_pk)['code'] == 0
     del_balance1 = normal_aide.platon.get_balance(normal_aide0_namedtuple.del_addr)
     print(del_balance1)
-    assert del_balance1 - del_balance < platon_utils.to_von(0.01, 'lat')
+    assert del_balance1 - del_balance < eth_utils.to_wei(0.01, 'ether')
 
     restr_info5 = normal_aide.restricting.get_restricting_info(normal_aide0_namedtuple.del_addr)
     print(restr_info5)

@@ -1,6 +1,8 @@
 from loguru import logger
 
 import allure
+import inspect
+import time
 import pytest
 from platon._utils.error_code import ERROR_CODE
 
@@ -14,7 +16,7 @@ def test_init_lockout_plan(init_aide):
     @Desc:
      -私链启动后，查询初始锁仓计划
     """
-
+    inspect.stack()
     assert init_aide.restricting.get_restricting_info(init_aide.restricting.ADDRESS) == ERROR_CODE[304005]
 
 
@@ -128,5 +130,14 @@ def test_lockout_plan_single_plan_insufficient(normal_aide):
      -私链启动后，创建锁仓计划，Epoch 参数输入 -1
      -私链启动后，创建锁仓计划，Epoch 参数输入空字符串None
     """
+    time.sleep(180)
+    blockNumber = normal_aide.platon.block_number
+    print("blockNumber: ", blockNumber)
+    block = normal_aide.platon.getBlock(blockNumber)
+    print("block: ", block)
+    blockQuorumCert = normal_aide.platon.getBlockQuorumCert([block.hash.hex()])
+    print("blockQuorumCert: ", blockQuorumCert)
+    validator = normal_aide.debug.get_validator_by_blockNumber(blockNumber)
+    print("validator: ", validator)
     account = new_account(normal_aide)
     print(normal_aide.economic.round_blocks)

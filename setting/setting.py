@@ -27,6 +27,6 @@ KEYSTORE_DIR = os.path.join(BASE_DIR, 'env-files/keystore')
 
 # 日志设置
 logger.remove()
-logger.add(sys.stderr, level="INFO")
+logger.add(sys.stderr, level="DEBUG")
 log_file = datetime.strftime(datetime.now(), 'log/log-%m%d%H%M%S.log')
-logger.add(log_file, level="INFO")
+logger.add(log_file, level="DEBUG")

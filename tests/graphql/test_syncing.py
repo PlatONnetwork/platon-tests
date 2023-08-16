@@ -25,7 +25,7 @@ def test_gasPrice(normal_aide):
 
 
 def test_blocks(normal_aide):
-    account = normal_aide.platon.account.create(hrp=normal_aide.hrp)
+    account = normal_aide.platon.account.create()
     address = account.address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_number = transfer_result['blockNumber']

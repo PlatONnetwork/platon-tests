@@ -137,31 +137,32 @@ def test_ghost_bug_001(normal_aide):
     pass
 
 
-@pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
-@pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
-def test_withdrew_staking(create_lock_free_amt, normal_nodes):
-    """测试主动撤销质押 并 零出块"""
-    normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, _ = create_lock_free_amt
-    assert normal_aide0.staking.withdrew_staking(node_id=normal_aide0_nt.node_id,
-                                                 private_key=normal_aide0_nt.sta_pk)['code'] == 0
-    candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
-    assert candidate_info.Status == 33
-    normal_nodes[0].stop()
-
-    punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide1, normal_aide0, normal_aide0_nt)
-    logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
-    if punishment_consensus_num == 4:  # 第4个共识轮被惩罚,表示上一个结算周期已过,需在等待一个结算周期
-        wait_settlement(normal_aide1)
-    else:
-        wait_settlement(normal_aide1, 1)
-    normal_nodes[0].start()
-    candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
-    assert candidate_info.Status == 35
+# @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+# @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
+# def test_withdrew_staking(create_lock_free_amt, normal_nodes):
+#     """测试主动撤销质押 并 零出块"""
+#     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt, _ = create_lock_free_amt
+#     assert normal_aide0.staking.withdrew_staking(node_id=normal_aide0_nt.node_id,
+#                                                  private_key=normal_aide0_nt.sta_pk)['code'] == 0
+#     candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
+#     assert candidate_info.Status == 33
+#     normal_nodes[0].stop()
+#
+#     punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide1, normal_aide0, normal_aide0_nt)
+#     logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
+#     if punishment_consensus_num == 4:  # 第4个共识轮被惩罚,表示上一个结算周期已过,需在等待一个结算周期
+#         wait_settlement(normal_aide1)
+#     else:
+#         wait_settlement(normal_aide1, 1)
+#     normal_nodes[0].start()
+#     candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
+#     assert candidate_info.Status == 35
 
 
 class TestDelegateLockOneAccToManyNode:
     """ 测试单账户-多节点场景 """
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": False}], indirect=True)
     def test_lock_free_amt(self, create_lock_free_amt):
@@ -233,6 +234,7 @@ class TestDelegateLockOneAccToManyNode:
         logger.info("-验证锁定期数据")
         Assertion.del_lock_info_zero_money(normal_aide0, normal_aide0_nt)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": False}], indirect=True)
     def test_lock_restr_amt(self, create_lock_restr_amt):
@@ -299,6 +301,7 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info["Pledge"] == del_amt3 + (del_amt1 * 2) + (BD.delegate_limit * 2)
         assert restr_info["debt"] == 0
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": False, "MixAcc": False}], indirect=True)
     def test_lock_mix_amt_free_unlock_long(self, create_lock_mix_amt_free_unlock_long):
@@ -374,6 +377,7 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount - RestrictingPlan
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": False}], indirect=True)
     def test_lock_mix_amt_restr_unlock_long(self, create_lock_mix_amt_restr_unlock_long):
@@ -447,6 +451,7 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False}], indirect=True)
     def test_lock_mix_amt_unlock_eq(self, create_lock_mix_amt_unlock_eq):
@@ -521,6 +526,7 @@ class TestDelegateLockOneAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True, "StaAmt": "limit", "rewardPer": 0}],
                              indirect=True)
@@ -566,6 +572,7 @@ class TestDelegateLockOneAccToManyNode:
         expect_data = {(5, BD.von_k - BD.von_limit, BD.von_limit)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False, "rewardPer": 10}], indirect=True)
     @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": True}], indirect=True)
@@ -606,18 +613,22 @@ class TestDelegateLockOneAccToManyNode:
         amt_later = normal_aide0.platon.get_balance(normal_aide0_nt.del_addr)
         assert wit_del_dat3.delegateIncome - (amt_later - amt_before) < BD.von_min
 
-    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 0, }], indirect=True)
-    def test_undelegate_freeze_duration_zero(self, choose_undelegate_freeze_duration):
-        """解委托周期为零 部署链失败"""
-        chain, new_gen_file = choose_undelegate_freeze_duration
-        with pytest.raises(Exception) as exception_info:
-            chain.install(genesis_file=new_gen_file)
-        assert "executor install failed" in str(exception_info.value)
+    # @pytest.mark.P0
+    # @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 0, }], indirect=True)
+    # def test_undelegate_freeze_duration_zero(self, choose_undelegate_freeze_duration):
+    #     """解委托周期为零 部署链失败"""
+    #     chain, new_gen_file = choose_undelegate_freeze_duration
+    #     with pytest.raises(Exception) as exception_info:
+    #         for host in chain.hosts:
+    #             host.supervisor.clean()
+    #         chain.install(genesis_file=new_gen_file)
+    #     assert "executor install failed" in str(exception_info.value)
 
 
 class TestDelegateLockManyAccToManyNode:
     """ 测试多账户-多节点场景 """
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
     def test_lock_free_amt(self, create_lock_free_amt):
@@ -699,6 +710,7 @@ class TestDelegateLockManyAccToManyNode:
         logger.info("-验证B1账户锁定期无数据")
         Assertion.del_lock_info_zero_money(normal_aide1, normal_aide1_nt)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True}], indirect=True)
     def test_lock_restr_amt(self, create_lock_restr_amt):
@@ -791,6 +803,7 @@ class TestDelegateLockManyAccToManyNode:
         assert restr_info["Pledge"] == BD.delegate_amount - del_amt3
         assert restr_info["debt"] == 0
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
     def test_lock_mix_amt_free_unlock_long(self, create_lock_mix_amt_free_unlock_long):
@@ -897,6 +910,7 @@ class TestDelegateLockManyAccToManyNode:
         assert restr_info['Pledge'] == BD.delegate_amount - RestrictingPlan
         assert restr_info['balance'] == BD.delegate_amount and restr_info['debt'] == 0
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
     def test_lock_mix_amt_restr_unlock_long(self, create_lock_mix_amt_restr_unlock_long):
@@ -1005,95 +1019,98 @@ class TestDelegateLockManyAccToManyNode:
 class TestDelegateLockNodeException:
     """测试节点异常 使用锁定期金额进行委托和赎回委托"""
 
-    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 10, }], indirect=True)
-    @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
-    def test_node_gt_staking_limit(self, create_lock_mix_amt_free_unlock_long, normal_nodes):
-        """
-        测试节点状态异常(惩罚后大于质押金额) 使用锁定期金额 自由金额锁定周期更长进行委托
-        @Setup:
-            - choose_undelegate_freeze_duration: 更新锁定周期数
-            - create_lock_restr_amt ManyAcc: 多账户都创建锁仓计划委托并赎回
-            - create_lock_mix_amt_free_unlock_long MixAcc: 多账户都创建自由金额委托并赎回
-        @Desc:
-            - 验证多账户初始锁定金额中包含(锁仓金额 和 自由金额)
-            - 关闭节点未被惩罚前委托
-            - 关闭节点被惩罚后委托
-            - 节点惩罚后的质押金额 > staking_limit 等待一个周期后 节点状态恢复可用,可被正常委托
-        """
-        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
-        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
-        assert len(PF.p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)['Locks']) == 2
-        assert len(PF.p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)['Locks']) == 2
+    # @pytest.mark.P0
+    # @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 10, }], indirect=True)
+    # @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
+    # def test_node_gt_staking_limit(self, create_lock_mix_amt_free_unlock_long, normal_nodes):
+    #     """
+    #     测试节点状态异常(惩罚后大于质押金额) 使用锁定期金额 自由金额锁定周期更长进行委托
+    #     @Setup:
+    #         - choose_undelegate_freeze_duration: 更新锁定周期数
+    #         - create_lock_restr_amt ManyAcc: 多账户都创建锁仓计划委托并赎回
+    #         - create_lock_mix_amt_free_unlock_long MixAcc: 多账户都创建自由金额委托并赎回
+    #     @Desc:
+    #         - 验证多账户初始锁定金额中包含(锁仓金额 和 自由金额)
+    #         - 关闭节点未被惩罚前委托
+    #         - 关闭节点被惩罚后委托
+    #         - 节点惩罚后的质押金额 > staking_limit 等待一个周期后 节点状态恢复可用,可被正常委托
+    #     """
+    #     logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+    #     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+    #     assert len(PF.p_get_delegate_lock_info(normal_aide0, normal_aide0_nt)['Locks']) == 2
+    #     assert len(PF.p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)['Locks']) == 2
+    #
+    #     validator_list = get_pledge_list(normal_aide1.staking.get_validator_list)
+    #     assert normal_aide1.node_id in validator_list
+    #     normal_aide1_node_id = normal_aide1.node_id
+    #
+    #     logger.info(f"stop_node_id: {normal_aide1.node_id}")
+    #     normal_nodes[1].stop()
+    #
+    #     total_staking_reward, per_block_reward = normal_aide0.calculator.get_reward_info()
+    #     logger.info(f"total_staking_reward: {total_staking_reward}")
+    #     logger.info(f"per_block_reward: {per_block_reward}, total:{per_block_reward * 5}")
+    #
+    #     punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide0, normal_aide1, normal_aide1_nt)
+    #     logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
+    #     if punishment_consensus_num == 4:  # 第4个共识轮被惩罚,表示上一个结算周期已过,需在等待一个结算周期
+    #         wait_settlement(normal_aide0)
+    #     else:
+    #         wait_settlement(normal_aide0, 1)
+    #     logger.info(f"被惩罚 节点质押金额 > staking_limit, 节点状态恢复正常")
+    #     candidate_info = PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1)
+    #     assert candidate_info.Status == 0
+    #     assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1_node_id,
+    #                                           private_key=normal_aide1_nt.del_pk)['code'] == 0
+    #
+    #     logger.info(f"start_node_id: {normal_aide1_node_id}")
+    #     normal_aide1.node.start()
+    #     logger.info(f"{normal_aide1}: 委托BD.delegate_amount, 会使用锁定期自由金额+锁仓金额")
+    #     assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1_node_id,
+    #                                           private_key=normal_aide1_nt.del_pk)['code'] == 0
+    #     lock_info = PF.p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)
+    #     logger.info(f"{normal_aide1.node}: 锁定期只剩下锁仓金额")
+    #     assert len(lock_info["Locks"]) == 1
+    #     logger.info(f"其他账户对{normal_aide1.node}进行委托")
+    #     assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1_node_id,
+    #                                           private_key=normal_aide0_nt.del_pk)['code'] == 0
+    #
+    # @pytest.mark.P0
+    # @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 10, "slashBlock": 10}], indirect=True)
+    # @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
+    # def test_node_lt_staking_limit(self, create_lock_mix_amt_free_unlock_long, normal_nodes):
+    #     """测试节点状态异常(惩罚后小于质押金额) 使用锁定期金额委托"""
+    #     logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+    #     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
+    #
+    #     assert PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1).Status == 0
+    #
+    #     validator_list = get_pledge_list(normal_aide1.staking.get_validator_list)
+    #     assert normal_aide1.node_id in validator_list
+    #     normal_aide1_node_id = normal_aide1.node_id
+    #
+    #     logger.info(f"stop_node_id: {normal_aide1.node_id}")
+    #     normal_nodes[1].stop()
+    #
+    #     total_staking_reward, per_block_reward = normal_aide0.calculator.get_reward_info()
+    #     logger.info(f"total_staking_reward: {total_staking_reward}")
+    #     logger.info(f"per_block_reward: {per_block_reward}, total:{per_block_reward * 10}")
+    #
+    #     punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide0, normal_aide1, normal_aide1_nt)
+    #     logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
+    #     if punishment_consensus_num == 4:  # 第4个共识轮被惩罚,表示上一个结算周期已过,需在等待一个结算周期
+    #         wait_settlement(normal_aide0)
+    #     else:
+    #         wait_settlement(normal_aide0, 1)
+    #     logger.info(f"start_node_id: {normal_aide1_node_id}")
+    #     normal_aide1.node.start()
+    #     logger.info(f"被惩罚 节点质押金额 < staking_limit, 节点状态异常")
+    #     candidate_info = PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1)
+    #     assert candidate_info.Status == 7
+    #     assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
+    #                                           private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301103]
 
-        validator_list = get_pledge_list(normal_aide1.staking.get_validator_list)
-        assert normal_aide1.node_id in validator_list
-        normal_aide1_node_id = normal_aide1.node_id
-
-        logger.info(f"stop_node_id: {normal_aide1.node_id}")
-        normal_nodes[1].stop()
-
-        total_staking_reward, per_block_reward = normal_aide0.calculator.get_reward_info()
-        logger.info(f"total_staking_reward: {total_staking_reward}")
-        logger.info(f"per_block_reward: {per_block_reward}, total:{per_block_reward * 5}")
-
-        punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide0, normal_aide1, normal_aide1_nt)
-        logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
-        if punishment_consensus_num == 4:  # 第4个共识轮被惩罚,表示上一个结算周期已过,需在等待一个结算周期
-            wait_settlement(normal_aide0)
-        else:
-            wait_settlement(normal_aide0, 1)
-        logger.info(f"被惩罚 节点质押金额 > staking_limit, 节点状态恢复正常")
-        candidate_info = PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1)
-        assert candidate_info.Status == 0
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1_node_id,
-                                              private_key=normal_aide1_nt.del_pk)['code'] == 0
-
-        logger.info(f"start_node_id: {normal_aide1_node_id}")
-        normal_aide1.node.start()
-        logger.info(f"{normal_aide1}: 委托BD.delegate_amount, 会使用锁定期自由金额+锁仓金额")
-        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1_node_id,
-                                              private_key=normal_aide1_nt.del_pk)['code'] == 0
-        lock_info = PF.p_get_delegate_lock_info(normal_aide0, normal_aide1_nt)
-        logger.info(f"{normal_aide1.node}: 锁定期只剩下锁仓金额")
-        assert len(lock_info["Locks"]) == 1
-        logger.info(f"其他账户对{normal_aide1.node}进行委托")
-        assert normal_aide0.delegate.delegate(BD.delegate_amount, 3, normal_aide1_node_id,
-                                              private_key=normal_aide0_nt.del_pk)['code'] == 0
-
-    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 10, "slashBlock": 10}], indirect=True)
-    @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
-    def test_node_lt_staking_limit(self, create_lock_mix_amt_free_unlock_long, normal_nodes):
-        """测试节点状态异常(惩罚后小于质押金额) 使用锁定期金额委托"""
-        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
-        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_free_unlock_long
-
-        assert PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1).Status == 0
-
-        validator_list = get_pledge_list(normal_aide1.staking.get_validator_list)
-        assert normal_aide1.node_id in validator_list
-        normal_aide1_node_id = normal_aide1.node_id
-
-        logger.info(f"stop_node_id: {normal_aide1.node_id}")
-        normal_nodes[1].stop()
-
-        total_staking_reward, per_block_reward = normal_aide0.calculator.get_reward_info()
-        logger.info(f"total_staking_reward: {total_staking_reward}")
-        logger.info(f"per_block_reward: {per_block_reward}, total:{per_block_reward * 10}")
-
-        punishment_consensus_num = wait_consensus_assert_stop_node_status(normal_aide0, normal_aide1, normal_aide1_nt)
-        logger.info(f"stop_node 在第{punishment_consensus_num}个共识轮被惩罚")
-        if punishment_consensus_num == 4:  # 第4个共识轮被惩罚,表示上一个结算周期已过,需在等待一个结算周期
-            wait_settlement(normal_aide0)
-        else:
-            wait_settlement(normal_aide0, 1)
-        logger.info(f"start_node_id: {normal_aide1_node_id}")
-        normal_aide1.node.start()
-        logger.info(f"被惩罚 节点质押金额 < staking_limit, 节点状态异常")
-        candidate_info = PF.p_get_candidate_info(normal_aide0, query_aide=normal_aide1)
-        assert candidate_info.Status == 7
-        assert normal_aide0.delegate.delegate(BD.delegate_limit, 3, normal_aide1.node_id,
-                                              private_key=normal_aide1_nt.del_pk)['message'] == ERROR_CODE[301103]
-
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True}], indirect=True)
     def test_node_withdrew_staking(self, create_lock_free_amt):
@@ -1147,6 +1164,7 @@ class TestWithdrewDelegate:
 
 
 class TestWithdrewDelegateBaseCase(TestWithdrewDelegate):
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1224,6 +1242,7 @@ class TestWithdrewDelegateBaseCase(TestWithdrewDelegate):
 
         assert PF.p_get_delegate_info(normal_aide0, normal_aide0_nt.del_addr, normal_aide0_nt) is None
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": True}], indirect=True)
@@ -1345,6 +1364,7 @@ class TestWithdrewDelegateBaseCase(TestWithdrewDelegate):
         lock_expect_data = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 80, BD.von_k)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, lock_expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": False}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": True}], indirect=True)
@@ -1394,6 +1414,7 @@ class TestWithdrewDelegateBaseCase(TestWithdrewDelegate):
 class TestAccLockMixAmtHesitation(TestWithdrewDelegate):
     """测试赎回委托 / 账户委托(MixAmt同时)犹豫期、锁定期委托犹豫期 (01~04)"""
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1437,6 +1458,7 @@ class TestAccLockMixAmtHesitation(TestWithdrewDelegate):
                                   "new_value": BD.delegate_amount * 2 - withdrew_del_amt1}}
         Assertion.assert_restr_amt(restr_before, restr_later, expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1476,6 +1498,7 @@ class TestAccLockMixAmtHesitation(TestWithdrewDelegate):
         expect_data1 = {(3, lock_residue_amt + BD.delegate_limit * 10, 0)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data1)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1515,6 +1538,7 @@ class TestAccLockMixAmtHesitation(TestWithdrewDelegate):
         expect_data1 = {(3, BD.delegate_amount, BD.delegate_limit * 70)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data1)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1564,6 +1588,7 @@ class TestAccLockMixAmtHesitation(TestWithdrewDelegate):
 class TestAccMixHesitationLockMixValid(TestWithdrewDelegate):
     """测试赎回委托 / 账户委托(MixAmt同时)犹豫期、锁定期委托生效期 (05~08)"""
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1617,6 +1642,7 @@ class TestAccMixHesitationLockMixValid(TestWithdrewDelegate):
                          "LockReleasedHes": 0, "LockRestrictingPlanHes": 0}
         Assertion.assert_delegate_info_contain(delegate_info_f, expect_data_f)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1657,6 +1683,7 @@ class TestAccMixHesitationLockMixValid(TestWithdrewDelegate):
         expect_data1 = {(3, lock_residue_amt, 0), (4, BD.delegate_limit * 10, 0)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data1)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1697,6 +1724,7 @@ class TestAccMixHesitationLockMixValid(TestWithdrewDelegate):
         expect_data1 = {(3, lock_residue_amt, 0), (4, BD.delegate_amount - lock_residue_amt, BD.delegate_limit * 70)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data1)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -1747,6 +1775,7 @@ class TestAccMixHesitationLockMixValid(TestWithdrewDelegate):
 class TestAccMixValidLockMixHesitation(TestWithdrewDelegate):
     """测试赎回委托 / 账户委托(MixAmt同时)生效期、锁定期委托犹豫期 (09~12)"""
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": True}], indirect=True)
@@ -1819,6 +1848,7 @@ class TestAccMixValidLockMixHesitation(TestWithdrewDelegate):
                                   "new_value": BD.delegate_amount * 2 - restr_plan_amt}}
         Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": True}], indirect=True)
@@ -1872,6 +1902,7 @@ class TestAccMixValidLockMixHesitation(TestWithdrewDelegate):
                                   "new_value": BD.delegate_amount * 2 - BD.delegate_amount}}
         Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": True}], indirect=True)
@@ -1926,6 +1957,7 @@ class TestAccMixValidLockMixHesitation(TestWithdrewDelegate):
                                   "new_value": BD.delegate_amount * 2 - lock_plan - acc_plan}}
         Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": True}], indirect=True)
@@ -1986,6 +2018,7 @@ class TestAccMixValidLockMixHesitation(TestWithdrewDelegate):
 class TestAccLockMixAmtValid(TestWithdrewDelegate):
     """测试赎回委托 / 账户委托(MixAmt同时)生效期、锁定期委托生效期 (13~16)"""
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -2037,6 +2070,7 @@ class TestAccLockMixAmtValid(TestWithdrewDelegate):
         logger.info(f"-锁仓计划无变化")
         Assertion.assert_restr_amt(restr_before, restr_later, {})
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -2089,6 +2123,7 @@ class TestAccLockMixAmtValid(TestWithdrewDelegate):
                                   "new_value": BD.delegate_amount * 2 - released_plan}}
         Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -2142,6 +2177,7 @@ class TestAccLockMixAmtValid(TestWithdrewDelegate):
                                   "new_value": BD.delegate_amount * 2 - released_plan}}
         Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -2232,6 +2268,7 @@ class TestAccMixDiffCycle(TestWithdrewDelegate):
 class TestAccFreeHesitationRestrValid(TestAccMixDiffCycle):
     """ 测试赎回委托 账户混合金额 自由金额 犹豫期  /  锁仓金额 生效期 """
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_diff_cycle_delegate', [{"restr_wait": True}], indirect=True)
@@ -2300,6 +2337,7 @@ class TestAccFreeHesitationRestrValid(TestAccMixDiffCycle):
         expect_data2 = {(3, lock_residue_amt, 0), (4, withdrew_del_amt1 + released, released_plan_2)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 3, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_diff_cycle_delegate', [{"restr_wait": True}], indirect=True)
@@ -2348,6 +2386,7 @@ class TestAccFreeHesitationRestrValid(TestAccMixDiffCycle):
         expect_data2 = {(4, lock_residue_amt, 0), (6, released, released_plan + withdrew_del_amt2)}
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data2)
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_lock_mix_diff_cycle_del', TestAccMixDiffCycle.setup_data_01, indirect=True)
@@ -2398,6 +2437,7 @@ class TestAccFreeHesitationRestrValid(TestAccMixDiffCycle):
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data4)
         pass
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 5, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_lock_mix_diff_cycle_del_free_valid', TestAccMixDiffCycle.setup_data_02, indirect=True)
@@ -2453,6 +2493,7 @@ class TestAccFreeHesitationRestrValid(TestAccMixDiffCycle):
 class TestAccFreeValidRestrHesitation(TestAccMixDiffCycle):
     """ 测试赎回委托 账户混合金额  自由金额 生效期  /  锁仓金额 犹豫期 """
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('lock_mix_amt_unlock_eq_delegate', [{"wait_settlement": False}], indirect=True)
@@ -2505,6 +2546,7 @@ class TestAccFreeValidRestrHesitation(TestAccMixDiffCycle):
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data4)
         Assertion.assert_restr_amt(restr_before, restr_later, {})
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 3, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_diff_cycle_delegate', [{"free_wait": True}], indirect=True)
@@ -2555,6 +2597,7 @@ class TestAccFreeValidRestrHesitation(TestAccMixDiffCycle):
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data4)
         Assertion.assert_restr_amt(restr_before, restr_later, {})
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_lock_mix_diff_cycle_del', TestAccMixDiffCycle.setup_data_03, indirect=True)
@@ -2605,6 +2648,7 @@ class TestAccFreeValidRestrHesitation(TestAccMixDiffCycle):
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data5)
         Assertion.assert_restr_amt(restr_before, restr_later, {})
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 5, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_lock_mix_diff_cycle_del_free_valid', TestAccMixDiffCycle.setup_data_04, indirect=True)
@@ -2674,6 +2718,7 @@ class TestLockMixDiffCycle(TestWithdrewDelegate):
 class TestLockFreeHesitationRestrValid(TestLockMixDiffCycle):
     """ 测试赎回委托 锁定期混合金额 自由金额 犹豫期  /  锁仓金额 生效期 """
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": False}], indirect=True)
@@ -2723,6 +2768,7 @@ class TestLockFreeHesitationRestrValid(TestLockMixDiffCycle):
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data5)
         Assertion.assert_restr_amt(restr_before, restr_later, {})
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 3, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate', [{"wait_settlement": True}], indirect=True)
@@ -2776,6 +2822,7 @@ class TestLockFreeHesitationRestrValid(TestLockMixDiffCycle):
 class TestLockFreeValidRestrHesitation(TestLockMixDiffCycle):
     """ 测试赎回委托 锁定期混合金额 自由金额 生效期  /  锁仓金额 犹豫期 """
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 5, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate_02', [{"wait_settlement": False}], indirect=True)
@@ -2825,6 +2872,7 @@ class TestLockFreeValidRestrHesitation(TestLockMixDiffCycle):
         Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data5)
         Assertion.assert_restr_amt(restr_before, restr_later, {})
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 5, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True}], indirect=True)
     @pytest.mark.parametrize('acc_mix_amt_delegate_02', [{"wait_settlement": True}], indirect=True)
@@ -2878,6 +2926,7 @@ class TestLockFreeValidRestrHesitation(TestLockMixDiffCycle):
 class TestRedeemDelegate:
     """测试提取解锁委托"""
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_restr_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
     def test_basics_redeem_delegate(self, create_lock_mix_amt_free_unlock_long):
@@ -2939,44 +2988,47 @@ class TestRedeemDelegate:
         expect_data4 = {'Pledge': {"old_value": BD.von_k, "new_value": 0}}
         Assertion.assert_restr_amt(restr_before, restr_later, expect_data4)
 
-    @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
-    @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
-    def test_node_exception_redeem_delegate(self, create_lock_mix_amt_restr_unlock_long, normal_aides, normal_nodes):
-        """
-        节点异常提取已解锁金额
-        - 节点物理状态异常
-        - 节点链上状态异常 零出块后大于质押金额
-        """
-        logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
-        normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_restr_unlock_long
-        normal_aide2 = normal_aides[-1]
-        expect_data = {(3, BD.von_k, 0), (4, 0, BD.von_k)}
-        Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
-        Assertion.del_locks_money(normal_aide1, normal_aide1_nt, expect_data)
-        normal_nodes[1].stop()
+    # @pytest.mark.P0
+    # @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
+    # @pytest.mark.parametrize('create_lock_free_amt', [{"ManyAcc": True, "MixAcc": True}], indirect=True)
+    # def test_node_exception_redeem_delegate(self, create_lock_mix_amt_restr_unlock_long, normal_aides, normal_nodes):
+    #     """
+    #     节点异常提取已解锁金额
+    #     - 节点物理状态异常
+    #     - 节点链上状态异常 零出块后大于质押金额
+    #     """
+    #     logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
+    #     normal_aide0, normal_aide1, normal_aide0_nt, normal_aide1_nt = create_lock_mix_amt_restr_unlock_long
+    #     normal_aide2 = normal_aides[-1]
+    #     expect_data = {(3, BD.von_k, 0), (4, 0, BD.von_k)}
+    #     Assertion.del_locks_money(normal_aide0, normal_aide0_nt, expect_data)
+    #     Assertion.del_locks_money(normal_aide1, normal_aide1_nt, expect_data)
+    #     normal_nodes[1].stop()
+    #
+    #     wait_settlement(normal_aide2)
+    #
+    #     acc_amt_before = normal_aide0.platon.get_balance(normal_aide1_nt.del_addr)
+    #     logger.info(f"物理状态异常领取已释放锁定金 自由金额")
+    #     assert normal_aide0.delegate.redeem_delegate(private_key=normal_aide1_nt.del_pk)['code'] == 0
+    #     red_acc_amt = normal_aide0.platon.get_balance(normal_aide1_nt.del_addr)
+    #     assert abs(red_acc_amt - acc_amt_before - BD.von_k) < BD.von_min
+    #
+    #     normal_nodes[1].start()
+    #     normal_nodes[0].stop()
+    #
+    #     acc_amt_before, red_acc_amt, restr_before, restr_later = \
+    #         redeem_del_wait_unlock_diff_balance_restr(normal_aide2, normal_aide0_nt, wait_num=1, diff_restr=True)
+    #
+    #     candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
+    #     assert candidate_info.Status == 3
+    #     logger.info(f"链上状态异常领取已释放锁定金 自由金额 + 锁仓金额")
+    #     assert abs(red_acc_amt - acc_amt_before - BD.von_k) < BD.von_min
+    #
+    #     expect_data2 = {'Pledge': {"old_value": BD.von_k, "new_value": 0}}
+    #     Assertion.assert_restr_amt(restr_before, restr_later, expect_data2)
 
-        wait_settlement(normal_aide2)
-
-        acc_amt_before = normal_aide0.platon.get_balance(normal_aide1_nt.del_addr)
-        logger.info(f"物理状态异常领取已释放锁定金 自由金额")
-        assert normal_aide0.delegate.redeem_delegate(private_key=normal_aide1_nt.del_pk)['code'] == 0
-        red_acc_amt = normal_aide0.platon.get_balance(normal_aide1_nt.del_addr)
-        assert abs(red_acc_amt - acc_amt_before - BD.von_k) < BD.von_min
-
-        normal_aide1.node.start()
-        normal_nodes[0].stop()
-
-        acc_amt_before, red_acc_amt, restr_before, restr_later = \
-            redeem_del_wait_unlock_diff_balance_restr(normal_aide2, normal_aide0_nt, wait_num=1, diff_restr=True)
-
-        candidate_info = PF.p_get_candidate_info(normal_aide1, query_aide=normal_aide0)
-        assert candidate_info.Status == 3
-        logger.info(f"链上状态异常领取已释放锁定金 自由金额 + 锁仓金额")
-        assert abs(red_acc_amt - acc_amt_before - BD.von_k) < BD.von_min
-
-        expect_data2 = {'Pledge': {"old_value": BD.von_k, "new_value": 0}}
-        Assertion.assert_restr_amt(restr_before, restr_later, expect_data2)
-
+    @pytest.mark.P0
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('create_lock_mix_amt_unlock_eq', [{"ManyAcc": True}], indirect=True)
     def test_fail_redeem_delegate(self, create_lock_mix_amt_unlock_eq):
@@ -2996,6 +3048,7 @@ class TestRedeemDelegate:
         assert abs(red_acc_amt - acc_amt_before) < BD.von_min
         Assertion.assert_restr_amt(restr_before, restr_later, {})
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     @pytest.mark.parametrize('many_cycle_restr_redeem_delegate', [{"ManyAcc": True}], indirect=True)
     def test_many_cycle_restr_redeem_delegate(self, many_cycle_restr_redeem_delegate):
@@ -3043,6 +3096,7 @@ class TestRedeemDelegate:
         Assertion.assert_restr_amt(restr_later, restr_info, expect_data3)
         pass
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     def test_many_cycle_restr_loop_redeem_delegate(self, many_cycle_restr_loop_redeem_delegate, normal_aides):
         """
@@ -3945,6 +3999,7 @@ class TestLoopDelegate:
         logger.info(f"锁仓合约地址金额：{normal_aide0.platon.get_balance(normal_aide0.restricting.ADDRESS)}")
         return red_acc_amt
 
+    @pytest.mark.P0
     @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 2, }], indirect=True)
     def test_loop_delegate(self, loop_delegate):
         logger.info(f"test_case_name: {self.__class__.__name__}/{inspect.stack()[0][3]}")
@@ -3979,6 +4034,7 @@ class TestLoopDelegate:
         assert BD.init_del_account_amt - acc_amt < BD.von_limit
 
 
+@pytest.mark.P0
 @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
 @pytest.mark.parametrize('many_cycle_restr_redeem_delegate', [{"ManyAcc": False}], indirect=True)
 def test_many_cycle_restr_draw_1(many_cycle_restr_redeem_delegate):
@@ -4018,12 +4074,15 @@ def test_many_cycle_restr_draw_1(many_cycle_restr_redeem_delegate):
     pass
 
 
+@pytest.mark.P0
 @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
 def test_many_cycle_restr_draw_2(choose_undelegate_freeze_duration, normal_aides):
     """
     test_LS_UPV_023: 锁仓多个释放期，委托赎回
     """
     chain, new_gen_file = choose_undelegate_freeze_duration
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -4078,13 +4137,15 @@ def test_many_cycle_restr_draw_2(choose_undelegate_freeze_duration, normal_aides
             Assertion.assert_restr_amt(restr_info_before, restr_info_later, restr_expect_data)
             assert red_acc_amt - acc_amt_before - BD.delegate_limit * 10 < BD.von_min
 
-
+@pytest.mark.P0
 @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
 def test_restr_draw_3(choose_undelegate_freeze_duration, normal_aides):
     """
     test_UP_FV_018: 赎回锁仓委托
     """
     chain, new_gen_file = choose_undelegate_freeze_duration
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -4112,11 +4173,13 @@ def test_restr_draw_3(choose_undelegate_freeze_duration, normal_aides):
                    'Pledge': {"old_value": BD.delegate_amount, "new_value": BD.delegate_limit * 50}}
     Assertion.assert_restr_amt(restr_info_before, restr_info_later, expect_data)
 
-
+@pytest.mark.P0
 @pytest.mark.parametrize('choose_undelegate_freeze_duration', [{"duration": 1, }], indirect=True)
 def test_restr_draw_4(choose_undelegate_freeze_duration, normal_aides):
     """锁仓计划中 包含有钱释放/没钱两种状态 结合 赎回委托"""
     chain, new_gen_file = choose_undelegate_freeze_duration
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 

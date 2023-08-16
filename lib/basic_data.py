@@ -35,7 +35,7 @@ class BaseData(object):
         BaseData.init_sta_account_amt = BaseData.staking_limit * 10
         BaseData.init_del_account_amt = BaseData.staking_limit * 10
 
-        BaseData.von_limit = aide.web3.toVon(1, "lat")
+        BaseData.von_limit = aide.web3.toWei(1, "ether")
         BaseData.von_k = BaseData.von_limit * 1000
         BaseData.von_min = int(Decimal(BaseData.von_limit) * Decimal(0.001))
         pass

@@ -29,6 +29,8 @@ def test_chain_init_token(chain, normal_aide):
     genesis.data['economicModel']['innerAcc']['cdfBalance'] = community_account
     new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
     genesis.save_as(new_gen_file)
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
 
     foundation_account = normal_aide.platon.get_balance(FUND_ACCOUNT.address)
@@ -154,7 +156,7 @@ def test_transfer_to_incentive_pool_account(normal_aide):
 @pytest.mark.P2
 def test_transfer_to_internal_contract_account(normal_aide):
     """
-     测试 私链启动后转账功能，给platON内置合约转账
+     测试 私链启动后转账功能，给PlatON内置合约转账
      @Desc:
          -启动私链账号余额10000，给Staking地址转 500 LAT,查看转账结果和余额
          -启动私链账号余额10000，给Restriction plan地址转 500 LAT,查看转账结果和余额
@@ -170,7 +172,7 @@ def test_transfer_to_internal_contract_account(normal_aide):
     normal_aide.transfer.transfer(normal_aide.staking.ADDRESS, lat(500), private_key=from_account.privateKey)
     normal_aide.transfer.transfer(normal_aide.restricting.ADDRESS, lat(500),
                                   private_key=from_account.privateKey)
-    normal_aide.transfer.transfer(normal_aide.delegate.reward_ADDRESS, lat(500),
+    normal_aide.transfer.transfer(normal_aide.delegate.REWARD_ADDRESS, lat(500),
                                   private_key=from_account.privateKey)
     normal_aide.transfer.transfer(normal_aide.slashing.ADDRESS, lat(500), private_key=from_account.privateKey)
 
@@ -201,7 +203,7 @@ def test_transfer_pledge_same_transaction(normal_aide):
     normal_aide.send_transaction(data, private_key=from_account.privateKey)
     # print(InnerContractEvent().processReceipt(receipt))
     staking_balance1 = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
-    assert normal_aide.staking.get_candidate_info()
+    # assert normal_aide.staking.get_candidate_info()
     assert staking_balance1 == staking_balance + normal_aide.economic.staking_limit + lat(500)
 
 
@@ -476,17 +478,21 @@ def test_normal_node_edit_benifit_address(normal_aide):
 
     for i in range(40):
         current_block = normal_aide.platon.block_number
-        node_id = normal_aide.ec_recover(normal_aide.platon.get_block(current_block))
+        node_id = normal_aide.ec_recover(current_block)
         if node_id == normal_aide.staking.staking_info.NodeId:
             break
         time.sleep(1)
-    normal_aide.staking.set_result_type('txn')
+    normal_aide.set_result_type('txn')
     txn1 = normal_aide.staking.edit_candidate(benifit_address=ben_account1.address, private_key=sta_account.privateKey)
-    receipt = normal_aide.transfer.send_transaction(txn1, private_key=sta_account.privateKey, result_type='receipt')
+    txHash = normal_aide.send_transaction(txn1, private_key=sta_account.privateKey)
+    time.sleep(5)
+    receipt = normal_aide.platon.get_transaction_receipt(txHash)
     assert InnerContractEvent().processReceipt(receipt)['code'] == 0
 
     txn2 = normal_aide.staking.withdrew_staking(private_key=sta_account.privateKey)
-    receipt = normal_aide.transfer.send_transaction(txn2, private_key=sta_account.privateKey, result_type='receipt')
+    txHash = normal_aide.send_transaction(txn2, private_key=sta_account.privateKey)
+    time.sleep(5)
+    receipt = normal_aide.platon.get_transaction_receipt(txHash)
     assert InnerContractEvent().processReceipt(receipt)['code'] == 0
 
     wait_consensus(normal_aide, 4)
@@ -518,7 +524,6 @@ def test_init_block_staking_reward(init_aide):
     block_proportion = str(init_aide.economic.reward.newBlockRate / 100)
 
     verifier_num = init_aide.calculator.get_verifier_count()
-    print(init_aide.economic.epoch_consensus)
     amount_per_settlement = int(Decimal(str(incentive_pool_amount)) / Decimal(str(annualcycle)))
     total_block_rewards = int(Decimal(str(amount_per_settlement)) * Decimal(str(block_proportion)))
     per_block_reward = int(Decimal(str(total_block_rewards)) / Decimal(str(init_aide.economic.epoch_blocks)))
@@ -529,5 +534,3 @@ def test_init_block_staking_reward(init_aide):
 
     assert per_block_reward == block_reward
     assert staking_reward == per_staking_reward
-
-

@@ -2,7 +2,7 @@ from setting.setting import Master_account
 
 
 def test_hash(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {hash}}')
@@ -11,7 +11,7 @@ def test_hash(normal_aide):
 
 
 def test_nonce(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {nonce}}')
@@ -20,7 +20,7 @@ def test_nonce(normal_aide):
 
 
 def test_index(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {index}}')
@@ -29,7 +29,7 @@ def test_index(normal_aide):
 
 
 def test_from(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {  from(block:0){address transactionCount balance code storage(slot: "0xa98e6baea6233965a0740e20e626c5500ecf16121547e8255ee5a28a4f08fc57")}}}')
@@ -39,7 +39,7 @@ def test_from(normal_aide):
 
 def test_to(normal_aide):
     # todo: 网页可以用但是这里不知道为什么报错
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     print(transfer_hash)
@@ -49,7 +49,7 @@ def test_to(normal_aide):
 
 
 def test_value(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {value}}')
@@ -58,7 +58,7 @@ def test_value(normal_aide):
 
 
 def test_gasPrice(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {gasPrice}}')
@@ -67,7 +67,7 @@ def test_gasPrice(normal_aide):
 
 
 def test_gas(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     transfer_gas = transfer_result['gasUsed']
@@ -77,7 +77,7 @@ def test_gas(normal_aide):
 
 
 def test_inputData(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {inputData}}')
@@ -86,7 +86,7 @@ def test_inputData(normal_aide):
 
 
 def test_block(normal_aide):
-    address = normal_aide.platon.account.create(hrp=normal_aide.hrp).address
+    address = normal_aide.platon.account.create().address
     transfer_result = normal_aide.transfer.transfer(address, normal_aide.economic.delegate_limit)
     transfer_hash = transfer_result['transactionHash'].hex()
     result = normal_aide.graphql.execute('{transaction(hash: "' + transfer_hash + '") {block {transactionCount}}}')

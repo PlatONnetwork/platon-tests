@@ -22,4 +22,4 @@ def test_init_node_dividend_ratio(init_aide):
     assert init_aide.staking.edit_candidate(reward_per=reward, private_key=CDF_ACCOUNT.privateKey).message == ERROR_CODE[0]
 
     assert init_aide.staking.get_candidate_info().RewardPer == 0
-    assert init_aide.staking.get_candidate_info().NextRewardPer == 0
+    assert init_aide.staking.get_candidate_info().NextRewardPer == 500

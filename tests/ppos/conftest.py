@@ -104,7 +104,7 @@ def update_undelegate_freeze_duration_three(initializer: Chain, recover):
 
 
 @pytest.fixture()
-def choose_undelegate_freeze_duration(request, initializer, recover):
+def choose_undelegate_freeze_duration(request, initializer):
     req_param = request.param
     duration = req_param.get("duration")
     slashBlocksReward = req_param.get("slashBlock")
@@ -142,6 +142,9 @@ def create_lock_free_amt(request, choose_undelegate_freeze_duration, normal_aide
     """
     req_param = request.param
     chain, new_gen_file = choose_undelegate_freeze_duration
+    # chain.uninstall()
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -179,6 +182,9 @@ def create_lock_restr_amt(request, choose_undelegate_freeze_duration, normal_aid
     """
     req_param = request.param
     chain, new_gen_file = choose_undelegate_freeze_duration
+    # chain.uninstall()
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -310,6 +316,8 @@ def create_lock_mix_amt_unlock_eq(request, choose_undelegate_freeze_duration, no
     """
     req_param = request.param
     chain, new_gen_file = choose_undelegate_freeze_duration
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -357,6 +365,8 @@ def many_cycle_restr_redeem_delegate(request, choose_undelegate_freeze_duration,
     """
     req_param = request.param
     chain, new_gen_file = choose_undelegate_freeze_duration
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -399,6 +409,8 @@ def many_cycle_restr_loop_redeem_delegate(choose_undelegate_freeze_duration, nor
     创建锁定期 混合金额 锁仓金额和自由金额 多周期的锁仓计划并使用锁仓金额嵌套委托多节点
     """
     chain, new_gen_file = choose_undelegate_freeze_duration
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
@@ -738,6 +750,8 @@ def loop_delegate(choose_undelegate_freeze_duration, normal_aides):
     创建锁定期/账户 混合金额 多周期的锁仓计划并使用锁仓金额嵌套委托多节点
     """
     chain, new_gen_file = choose_undelegate_freeze_duration
+    for host in chain.hosts:
+        host.supervisor.clean()
     chain.install(genesis_file=new_gen_file)
     time.sleep(5)
 
