@@ -132,12 +132,8 @@ def test_lockout_plan_single_plan_insufficient(normal_aide):
     """
     time.sleep(180)
     blockNumber = normal_aide.platon.block_number
-    print("blockNumber: ", blockNumber)
     block = normal_aide.platon.getBlock(blockNumber)
-    print("block: ", block)
     blockQuorumCert = normal_aide.platon.getBlockQuorumCert([block.hash.hex()])
-    print("blockQuorumCert: ", blockQuorumCert)
     validator = normal_aide.debug.get_validator_by_blockNumber(blockNumber)
-    print("validator: ", validator)
     account = new_account(normal_aide)
     print(normal_aide.economic.round_blocks)

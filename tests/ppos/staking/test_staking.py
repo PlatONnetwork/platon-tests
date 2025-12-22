@@ -4,6 +4,7 @@ from decimal import Decimal
 import pytest
 from loguru import logger
 from platon._utils.error_code import ERROR_CODE
+from platon_utils import to_bech32_address
 from platon_utils import (
     to_normalized_address
 )
@@ -108,7 +109,7 @@ def test_init_node_edit_(init_aide):
                                             private_key=CDF_ACCOUNT.privateKey).message == ERROR_CODE[0]
 
     # 收益地址为激励池不可以修改
-    # assert init_aide.staking.staking_info.BenefitAddress == ben_account.address
+    assert init_aide.staking.staking_info.BenefitAddress != to_bech32_address(ben_account.address, 'lat')
 
 
 @pytest.mark.P1
@@ -442,7 +443,7 @@ def test_mix_pledge_increase_staking(normal_aide):
      -跨结算周期再增持自由/锁仓最低增持金额 10 查看节点信息
      -撤销质押，查看账户和锁仓计划金额
     """
-    sta_account = new_account(normal_aide, lat(100000))
+    sta_account = new_account(normal_aide, lat(200000))
     plan = [{'Epoch': 1, 'Amount': lat(10000)},
             {'Epoch': 2, 'Amount': lat(10000)},
             {'Epoch': 3, 'Amount': lat(10000)},
@@ -470,9 +471,6 @@ def test_mix_pledge_increase_staking(normal_aide):
 
     assert normal_aide.staking.staking_info.Released == lat(50000) + normal_aide.economic.add_staking_limit
     assert normal_aide.staking.staking_info.RestrictingPlan == lat(50000) + normal_aide.economic.add_staking_limit
-
-    assert normal_aide.staking.staking_info.Released == normal_aide.economic.add_staking_limit
-    assert normal_aide.staking.staking_info.RestrictingPlan == normal_aide.economic.add_staking_limit
 
     staking_balance = normal_aide.platon.get_balance(normal_aide.staking.ADDRESS)
 
@@ -640,6 +638,3 @@ def test_f_pledge_increase_zero_execution_block(initializer, normal_nodes):
     assert aide1_node_info['Shares'] == aide2.economic.staking_limit * 2 - penalty_amount
     assert aide1_node_info['Released'] == aide2.economic.staking_limit + lat(50000) - penalty_amount
     assert aide1_node_info['RestrictingPlan'] == lat(50000)
-
-
-

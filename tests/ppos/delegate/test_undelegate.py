@@ -1078,7 +1078,6 @@ def test_ROE_056_057(normal_node, init_aide, recover):
     sd_gather = create_staking_delegate_wallet_balance(normal_aide, delegate_amount=delegate_amount)
     wait_settlement(normal_aide)
 
-    print('normal_node: ', normal_node, init_aide.node_id)
     normal_node.stop()
     wait_settlement(init_aide)
 

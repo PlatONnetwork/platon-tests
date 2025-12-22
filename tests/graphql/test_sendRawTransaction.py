@@ -1,6 +1,5 @@
 from lib.utils import wait_settlement
-from tests.conftest import
-
+from tests.conftest import get_datahash
 from setting.account import new_account
 
 
@@ -23,7 +22,6 @@ def test_sendRawTransaction_staking(normal_aide):
     tx_hash = result.get('sendRawTransaction')
 
     receipt = normal_aide.web3.platon.wait_for_transaction_receipt(tx_hash)
-    print(receipt)
     assert receipt['from'] == address
     assert receipt['status'] == 1
     assert receipt['to'] == normal_aide.web3.ppos.staking.address == receipt['logs'][0]['address']

@@ -33,7 +33,7 @@ def test_init_genesis_config_maxEpochMinutes(chain, value, recover):
             error = 'CheckEconomicModel configuration: The issuance period must be integer multiples of the settlement period and multiples must be greater than or equal to 4'
             assert error in str(e)
         if value == "":
-            error = 'invalid genesis file: json: cannot unmarshal string into Go struct field commonConfig.economicModel.common.maxEpochMinutes of type uint64'
+            error = 'invalid genesis file: json: cannot unmarshal string into Go struct field CommonConfig.economicModel.common.maxEpochMinutes of type uint64'
             assert error in str(e)
 
 
@@ -239,7 +239,7 @@ def test_init_genesis_config_slashBlocksReward(chain, value, recover):
     except Exception as e:
         print(e)
         if value == -1 or value == 0.1:
-            error = 'field slashingConfig.economicModel.slashing.slashBlocksReward of type uint32'
+            error = 'field SlashingConfig.economicModel.slashing.slashBlocksReward of type uint32'
             assert error in str(e)
         if value == 50000:
             error = 'Invalid parameter:The SlashBlocksReward must be [0, 50000)'
@@ -353,8 +353,10 @@ def test_init_genesis_config_increaseIssuanceRatio(chain, value, recover):
     except Exception as e:
         print(e)
         if value == -1 or value == 0.1:
-            error = 'invalid genesis file: json: cannot unmarshal number -1 into Go struct field rewardConfig.economicModel.reward.increaseIssuanceRatio of type uint16'
-            assert error in str(e)
+            error1 = 'invalid genesis file: json: cannot unmarshal number'
+            error2 = 'into Go struct field RewardConfig.economicModel.reward.increaseIssuanceRatio of type uint16'
+            assert error1 in str(e)
+            assert error2 in str(e)
         if value == 2001:
             error = 'Invalid parameter:The IncreaseIssuanceRatio must be [0, 2000]'
             assert error in str(e)
@@ -370,6 +372,7 @@ def test_init_genesis_config_zeroProduceFreezeDuration(chain, value, recover):
         -校验zeroProduceFreezeDuration为2001时，初始化链
     """
     genesis = Genesis(GENESIS_FILE)
+
     genesis.data['economicModel']['slashing']['zeroProduceFreezeDuration'] = value
     new_gen_file = GENESIS_FILE.replace(".json", "_new.json")
     genesis.save_as(new_gen_file)
@@ -400,7 +403,7 @@ def test_init_genesis_config_slashing_invalid_argument(chain, key, recover):
         chain.install(genesis_file=new_gen_file)
     except Exception as e:
         print(e)
-        error = 'invalid genesis file: json: cannot unmarshal string into Go struct field slashingConfig.economicModel.slashing.{} of type uint32'.format(key)
+        error = 'invalid genesis file: json: cannot unmarshal string into Go struct field SlashingConfig.economicModel.slashing.{} of type uint32'.format(key)
         assert error in str(e)
 
 
@@ -446,7 +449,7 @@ def test_init_genesis_config_newBlockRate(chain, value, recover):
     except Exception as e:
         print(e)
         if value == 0.1 or value == -1:
-            error = 'field rewardConfig.economicModel.reward.newBlockRate of type uint64'
+            error = 'field RewardConfig.economicModel.reward.newBlockRate of type uint64'
             assert error in str(e)
         if value == 101:
             error = 'The NewBlockRate must be greater than or equal to 0 and less than or equal to 100'

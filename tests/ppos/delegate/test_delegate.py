@@ -5,6 +5,7 @@ from loguru import logger
 import allure
 import pytest
 from platon._utils.error_code import ERROR_CODE
+from platon_utils import to_bech32_address
 
 from setting.account import REWARD_ADDRESS
 from lib.utils import wait_settlement, wait_consensus, new_account, lat
@@ -31,7 +32,7 @@ def test_DI_001_009(normal_aide, recover):
 
     delegate_info = normal_aide.delegate.get_delegate_info(delegate_address)
     logger.info(delegate_info)
-    assert delegate_info.Addr == delegate_address
+    assert delegate_info.Addr == to_bech32_address(delegate_address, 'lat')
     assert delegate_info.NodeId == normal_aide.node_id
     assert delegate_info.ReleasedHes == normal_aide.economic.delegate_limit
 
@@ -321,7 +322,7 @@ def test_DI_019(normal_aide, recover):
 
     assert len(msg) == 2
     for delegate_info in msg:
-        assert delegate_info.Addr == delegate_address
+        assert delegate_info.Addr == to_bech32_address(delegate_address, 'lat')
         assert delegate_info.NodeId == normal_aide.node_id
 
     staking_info = normal_aide.staking.staking_info  # 节点被委托的未生效总数量
@@ -460,7 +461,7 @@ def test_DI_026(normal_aide, recover):
     logger.info(delegate_list)
     assert len(delegate_list) == 1
     for item in delegate_list:
-        assert item.Addr == delegate_address
+        assert item.Addr == to_bech32_address(delegate_address, 'lat')
         assert item.NodeId == normal_aide.node_id
 
 
@@ -531,7 +532,7 @@ def test_DI_029_030(normal_aide, recover):
     delegate_list = normal_aide.delegate.get_delegate_list(address=delegate_address)
     logger.info(delegate_list)
 
-    assert delegate_list[0].Addr == delegate_address
+    assert delegate_list[0].Addr == to_bech32_address(delegate_address, 'lat')
     assert delegate_list[0].NodeId == normal_aide.node_id
 
 
@@ -582,7 +583,7 @@ def test_DI_032_033(normal_aide, recover):
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
-    assert result.Addr == delegate_address
+    assert result.Addr == to_bech32_address(delegate_address, 'lat')
     assert result.NodeId == normal_aide.node_id
 
     logger.info("The next cycle")
@@ -590,7 +591,7 @@ def test_DI_032_033(normal_aide, recover):
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
-    assert result.Addr == delegate_address
+    assert result.Addr == to_bech32_address(delegate_address, 'lat')
     assert result.NodeId == normal_aide.node_id
 
 
@@ -619,7 +620,7 @@ def test_DI_034(normal_aide, recover):
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
-    assert result.Addr == delegate_address
+    assert result.Addr == to_bech32_address(delegate_address, 'lat')
     assert result.NodeId == normal_aide.node_id
 
 
@@ -659,7 +660,7 @@ def test_DI_035_036(normal_node, init_aide, recover):
     result = init_aide.delegate.get_delegate_info(address=delegate_address, node_id=normal_aide.node_id,
                                                   staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
-    assert result.Addr == delegate_address
+    assert result.Addr == to_bech32_address(delegate_address, 'lat')
     assert result.NodeId == normal_aide.node_id
     logger.info("Restart the node")
     normal_node.start()
@@ -669,7 +670,7 @@ def test_DI_035_036(normal_node, init_aide, recover):
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
-    assert result.Addr == delegate_address
+    assert result.Addr == to_bech32_address(delegate_address, 'lat')
     assert result.NodeId == normal_aide.node_id
 
 
@@ -702,5 +703,5 @@ def test_DI_038(normal_aide, recover):
     result = normal_aide.delegate.get_delegate_info(address=delegate_address,
                                                     staking_block_identifier=msg.StakingBlockNum)
     logger.info(result)
-    assert result.Addr == delegate_address
+    assert result.Addr == to_bech32_address(delegate_address, 'lat')
     assert result.NodeId == normal_aide.node_id
