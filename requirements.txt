@@ -4,8 +4,8 @@ deepdiff==5.8.1
 eth_account==0.5.9
 eth_utils==1.10.0
 loguru==0.6.0
-platon.py==1.3.7
-platon_aide==1.3.11
+platon_py==2.0.0
+platon_aide==2.0.0
 platon_env==1.3.5
 platon_utils==1.2.1
 pytest==6.2.4
